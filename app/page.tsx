@@ -26,22 +26,6 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-card rounded-2xl border border-border p-4">
-            <div className="text-2xl font-bold text-primary">6</div>
-            <div className="text-sm text-muted mt-1">총 문제</div>
-          </div>
-          <div className="bg-card rounded-2xl border border-border p-4">
-            <div className="text-2xl font-bold text-success">4</div>
-            <div className="text-sm text-muted mt-1">문제 유형</div>
-          </div>
-          <div className="bg-card rounded-2xl border border-border p-4">
-            <div className="text-2xl font-bold text-warning">2</div>
-            <div className="text-sm text-muted mt-1">크리에이터</div>
-          </div>
-        </div>
-
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link
