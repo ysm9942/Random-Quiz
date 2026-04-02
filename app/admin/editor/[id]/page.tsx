@@ -35,8 +35,7 @@ export default function EditorPage({
   const router = useRouter();
   const image = getImageById(id);
   const existingConfig = getQuizConfigByImageId(id);
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [saved, setSaved] = useState(false);
@@ -79,32 +78,36 @@ export default function EditorPage({
     []
   );
 
-  // Convert mouse position to image-relative coordinates
-  const getImageRelativePos = useCallback(
-    (clientX: number, clientY: number) => {
-      if (!canvasRef.current || !imgRef.current) return { x: 0, y: 0 };
-      const imgRect = imgRef.current.getBoundingClientRect();
-      return {
-        x: Math.round(clientX - imgRect.left),
-        y: Math.round(clientY - imgRect.top),
-      };
-    },
-    []
-  );
+  // Get mouse position relative to the wrapper using getBoundingClientRect
+  const getPos = useCallback((e: React.MouseEvent) => {
+    if (!wrapperRef.current) return { x: 0, y: 0 };
+    const rect = wrapperRef.current.getBoundingClientRect();
+    return {
+      x: Math.round(e.clientX - rect.left),
+      y: Math.round(e.clientY - rect.top),
+    };
+  }, []);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      const pos = getImageRelativePos(e.clientX, e.clientY);
+      e.preventDefault();
+      const pos = getPos(e);
       setIsDragging(true);
       setDragStart(pos);
+      // Set initial crop point
+      setState((prev) => ({
+        ...prev,
+        crop: { x: pos.x, y: pos.y, width: 20, height: 20 },
+      }));
     },
-    [getImageRelativePos]
+    [getPos]
   );
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (!isDragging) return;
-      const pos = getImageRelativePos(e.clientX, e.clientY);
+      e.preventDefault();
+      const pos = getPos(e);
 
       const x = Math.max(0, Math.min(dragStart.x, pos.x));
       const y = Math.max(0, Math.min(dragStart.y, pos.y));
@@ -121,7 +124,7 @@ export default function EditorPage({
         },
       }));
     },
-    [isDragging, dragStart, getImageRelativePos]
+    [isDragging, dragStart, getPos]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -198,24 +201,28 @@ export default function EditorPage({
               <h3 className="text-sm font-semibold text-muted mb-3">
                 원본 이미지 (드래그로 영역 지정)
               </h3>
+              {/*
+                wrapper: position:relative, display:inline-block
+                This ensures the wrapper exactly matches the rendered image size.
+                The crop overlay and mouse events are all relative to this wrapper.
+              */}
               <div
-                ref={canvasRef}
-                className="relative bg-black rounded-xl overflow-hidden cursor-crosshair select-none inline-block"
+                ref={wrapperRef}
+                className="relative inline-block cursor-crosshair select-none"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
               >
                 <img
-                  ref={imgRef}
                   src={image.originalUrl}
                   alt={image.name}
-                  className="block max-w-full h-auto"
-                  style={{ maxHeight: 400 }}
+                  className="block rounded-xl"
+                  style={{ maxWidth: "100%", maxHeight: 450, width: "auto", height: "auto" }}
                   draggable={false}
                 />
-                {/* Crop overlay */}
+                {/* Crop overlay - positioned relative to the wrapper which matches image size */}
                 <div
-                  className="absolute border-2 border-primary bg-primary/10 pointer-events-none"
+                  className="absolute border-2 border-primary bg-primary/20 pointer-events-none rounded"
                   style={{
                     left: state.crop.x,
                     top: state.crop.y,
@@ -223,7 +230,7 @@ export default function EditorPage({
                     height: state.crop.height,
                   }}
                 >
-                  <div className="absolute -top-6 left-0 text-xs bg-primary text-white px-1.5 py-0.5 rounded">
+                  <div className="absolute -top-6 left-0 text-xs bg-primary text-white px-1.5 py-0.5 rounded whitespace-nowrap">
                     {state.crop.width} x {state.crop.height}
                   </div>
                 </div>
