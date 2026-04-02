@@ -7,9 +7,11 @@ import QuizImage from "@/components/quiz/QuizImage";
 import Button from "@/components/ui/Button";
 import ProgressBar from "@/components/ui/ProgressBar";
 import { Person } from "@/types";
+import { getQuizSettings } from "@/data/quiz-configs";
 
 export default function QuizPage() {
   const router = useRouter();
+  const { quizMaxWidth, quizMaxHeight } = getQuizSettings();
   const {
     currentQuestion,
     currentIndex,
@@ -66,14 +68,16 @@ export default function QuizPage() {
 
         {/* Question Image */}
         <div className="flex justify-center">
-          <QuizImage
-            imageUrl={currentQuestion.image.originalUrl}
-            crop={currentQuestion.config.crop}
-            zoom={currentQuestion.config.zoom}
-            mask={currentQuestion.config.mask}
-            maxHeight={220}
-            className="shadow-2xl shadow-black/50"
-          />
+          <div style={{ width: "100%", maxWidth: quizMaxWidth }}>
+            <QuizImage
+              imageUrl={currentQuestion.image.originalUrl}
+              crop={currentQuestion.config.crop}
+              zoom={currentQuestion.config.zoom}
+              mask={currentQuestion.config.mask}
+              maxHeight={quizMaxHeight}
+              className="shadow-2xl shadow-black/50"
+            />
+          </div>
         </div>
 
         {/* Question */}

@@ -36,6 +36,8 @@ export interface QuizSettings {
   totalQuestions: number;
   jjondeukQuestions: number;
   nongrutQuestions: number;
+  quizMaxWidth: number;   // px - max width of quiz image display
+  quizMaxHeight: number;  // px - max height of quiz image display
 }
 
 export interface QuizQuestion {

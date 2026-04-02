@@ -80,7 +80,7 @@ function generateFileContent(
     mask: { enabled: boolean; blurPercent: number };
     updatedAt: string;
   }>,
-  settings: { totalQuestions: number; jjondeukQuestions: number; nongrutQuestions: number }
+  settings: { totalQuestions: number; jjondeukQuestions: number; nongrutQuestions: number; quizMaxWidth: number; quizMaxHeight: number }
 ): string {
   const configLines = configs
     .map(
@@ -95,6 +95,8 @@ let quizSettings: QuizSettings = {
   totalQuestions: ${settings.totalQuestions},
   jjondeukQuestions: ${settings.jjondeukQuestions},
   nongrutQuestions: ${settings.nongrutQuestions},
+  quizMaxWidth: ${settings.quizMaxWidth ?? 480},
+  quizMaxHeight: ${settings.quizMaxHeight ?? 220},
 };
 
 // crop coords are in NATURAL image pixels.
