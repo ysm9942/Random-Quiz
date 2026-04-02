@@ -6,17 +6,20 @@ import { CropRegion, MaskConfig } from "@/types";
 interface QuizImageProps {
   imageUrl: string;
   crop: CropRegion;
-  zoom?: number;   // 1.0 = show full crop, 2.0 = zoom into center 2x
   mask: MaskConfig;
-  maxHeight?: number; // optional cap on rendered height in px
+  maxWidth?: number;   // cap display width in px
+  maxHeight?: number;  // cap display height in px
   className?: string;
 }
 
+// Crop coords (x, y, width, height) are in NATURAL image pixel space.
+// The component shows exactly the crop region, scaled to fill the container.
+// maxWidth/maxHeight constrain the display size.
 export default function QuizImage({
   imageUrl,
   crop,
-  zoom = 1,
   mask,
+  maxWidth,
   maxHeight,
   className = "",
 }: QuizImageProps) {
@@ -30,7 +33,6 @@ export default function QuizImage({
     img.src = imageUrl;
   }, [imageUrl]);
 
-  // Track actual container width for pixel-precise layout
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -40,26 +42,19 @@ export default function QuizImage({
     return () => ro.disconnect();
   }, []);
 
-  // Effective crop region after zoom (zoom into center)
-  const effectiveW = crop.width / zoom;
-  const effectiveH = crop.height / zoom;
-  const effectiveX = crop.x + (crop.width - effectiveW) / 2;
-  const effectiveY = crop.y + (crop.height - effectiveH) / 2;
+  // Scale: fit crop.width natural px into containerW display px
+  // If that would make height exceed maxHeight, constrain by height instead
+  const scaleByW = containerW > 0 ? containerW / crop.width : 0;
+  const scaleByH = maxHeight ? maxHeight / crop.height : Infinity;
+  const scale = Math.min(scaleByW, scaleByH);
 
-  // Compute pixel layout from actual container width
-  let containerH = containerW > 0 ? containerW * (effectiveH / effectiveW) : 0;
-  if (maxHeight && containerH > maxHeight) containerH = maxHeight;
-
-  // Scale so effectiveW natural px = containerW display px (then adjust for capped height)
-  const scale = containerW > 0 ? Math.min(
-    containerW / effectiveW,
-    maxHeight ? containerH / effectiveH : Infinity
-  ) : 0;
+  // Actual container height after scaling
+  const containerH = scale > 0 ? crop.height * scale : 0;
 
   const imgW = naturalSize ? naturalSize.w * scale : 0;
   const imgH = naturalSize ? naturalSize.h * scale : 0;
-  const imgLeft = -effectiveX * scale;
-  const imgTop = -effectiveY * scale;
+  const imgLeft = -crop.x * scale;
+  const imgTop = -crop.y * scale;
 
   return (
     <div
@@ -75,7 +70,7 @@ export default function QuizImage({
           className="absolute select-none"
           style={{
             width: imgW,
-            height: imgH,
+            height: "auto",
             left: imgLeft,
             top: imgTop,
           }}

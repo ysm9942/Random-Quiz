@@ -68,13 +68,12 @@ export default function QuizPage() {
 
         {/* Question Image */}
         <div className="flex justify-center">
-          <div style={{ width: "100%", maxWidth: quizMaxWidth }}>
+          <div style={{ width: "100%", maxWidth: currentQuestion.config.displayMaxWidth ?? quizMaxWidth }}>
             <QuizImage
               imageUrl={currentQuestion.image.originalUrl}
               crop={currentQuestion.config.crop}
-              zoom={currentQuestion.config.zoom}
               mask={currentQuestion.config.mask}
-              maxHeight={quizMaxHeight}
+              maxHeight={currentQuestion.config.displayMaxHeight ?? quizMaxHeight}
               className="shadow-2xl shadow-black/50"
             />
           </div>

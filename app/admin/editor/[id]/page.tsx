@@ -22,7 +22,8 @@ interface EditorState {
   cropY: number;
   cropW: number;
   cropH: number;
-  zoom: number;
+  displayMaxWidth: number;
+  displayMaxHeight: number;
   answer: Person;
 }
 
@@ -54,7 +55,8 @@ export default function EditorPage({
         cropY: existingConfig.crop.y,
         cropW: existingConfig.crop.width,
         cropH: existingConfig.crop.height,
-        zoom: existingConfig.zoom ?? 1.0,
+        displayMaxWidth: existingConfig.displayMaxWidth ?? 480,
+        displayMaxHeight: existingConfig.displayMaxHeight ?? 220,
         answer: existingConfig.answer,
       };
     }
@@ -63,7 +65,8 @@ export default function EditorPage({
       cropY: 200,
       cropW: 500,
       cropH: 150,
-      zoom: 1.0,
+      displayMaxWidth: 480,
+      displayMaxHeight: 220,
       answer: image?.person ?? "쫀득",
     };
   });
@@ -182,7 +185,8 @@ export default function EditorPage({
         width: state.cropW,
         height: state.cropH,
       },
-      zoom: state.zoom,
+      displayMaxWidth: state.displayMaxWidth,
+      displayMaxHeight: state.displayMaxHeight,
       mask: { enabled: false, blurPercent: 0 },
       updatedAt: new Date().toISOString(),
     };
@@ -337,32 +341,40 @@ export default function EditorPage({
                     className="w-full"
                   />
                 </div>
-                <div>
-                  <div className="flex justify-between text-xs text-muted mb-1">
-                    <span>Zoom</span>
-                    <span>{state.zoom.toFixed(1)}x</span>
+                <div className="pt-2 border-t border-border space-y-3">
+                  <p className="text-xs font-semibold text-muted">퀴즈 표시 크기</p>
+                  <div>
+                    <div className="flex justify-between text-xs text-muted mb-1">
+                      <span>최대 가로</span>
+                      <span>{state.displayMaxWidth}px</span>
+                    </div>
+                    <input
+                      type="range" min={150} max={800} step={10}
+                      value={state.displayMaxWidth}
+                      onChange={(e) => { setState((p) => ({ ...p, displayMaxWidth: parseInt(e.target.value) })); setSaved(false); }}
+                      className="w-full"
+                    />
                   </div>
-                  <input
-                    type="range"
-                    min={1.0}
-                    max={5.0}
-                    step={0.1}
-                    value={state.zoom}
-                    onChange={(e) => {
-                      setState((p) => ({ ...p, zoom: parseFloat(e.target.value) }));
-                      setSaved(false);
-                    }}
-                    className="w-full"
-                  />
+                  <div>
+                    <div className="flex justify-between text-xs text-muted mb-1">
+                      <span>최대 세로</span>
+                      <span>{state.displayMaxHeight}px</span>
+                    </div>
+                    <input
+                      type="range" min={50} max={500} step={10}
+                      value={state.displayMaxHeight}
+                      onChange={(e) => { setState((p) => ({ ...p, displayMaxHeight: parseInt(e.target.value) })); setSaved(false); }}
+                      className="w-full"
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted pt-2 border-t border-border font-mono">
                   <div>X: <span className="text-foreground">{state.cropX}</span></div>
                   <div>Y: <span className="text-foreground">{state.cropY}</span></div>
                   <div>W: <span className="text-foreground">{state.cropW}</span></div>
                   <div>H: <span className="text-foreground">{state.cropH}</span></div>
-                  <div>Zoom: <span className="text-foreground">{state.zoom.toFixed(1)}x</span></div>
                   {naturalSize.w > 0 && (
-                    <div>원본: <span className="text-foreground">{naturalSize.w}×{naturalSize.h}</span></div>
+                    <div className="col-span-2">원본: <span className="text-foreground">{naturalSize.w}×{naturalSize.h}</span></div>
                   )}
                 </div>
               </div>
@@ -401,13 +413,9 @@ export default function EditorPage({
               <div className="bg-background rounded-xl p-4 space-y-4">
                 <QuizImage
                   imageUrl={image.originalUrl}
-                  crop={{
-                    x: state.cropX,
-                    y: state.cropY,
-                    width: state.cropW,
-                    height: state.cropH,
-                  }}
-                  zoom={state.zoom}
+                  crop={{ x: state.cropX, y: state.cropY, width: state.cropW, height: state.cropH }}
+                  maxWidth={state.displayMaxWidth}
+                  maxHeight={state.displayMaxHeight}
                   mask={{ enabled: false, blurPercent: 0 }}
                   className="shadow-xl"
                 />

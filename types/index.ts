@@ -25,9 +25,10 @@ export interface QuizConfig {
   id: string;
   sourceImageId: string;
   answer: Person;
-  enabled: boolean;  // whether this quiz appears in the pool
+  enabled: boolean;        // whether this quiz appears in the pool
   crop: CropRegion;
-  zoom: number;      // zoom into center of crop (1.0 = no zoom, 2.0 = 2x zoom)
+  displayMaxWidth?: number;  // per-question quiz image width override (px)
+  displayMaxHeight?: number; // per-question quiz image height override (px)
   mask: MaskConfig;
   updatedAt: string;
 }

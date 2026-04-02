@@ -76,7 +76,8 @@ function generateFileContent(
     answer: string;
     enabled?: boolean;
     crop: { x: number; y: number; width: number; height: number };
-    zoom?: number;
+    displayMaxWidth?: number;
+    displayMaxHeight?: number;
     mask: { enabled: boolean; blurPercent: number };
     updatedAt: string;
   }>,
@@ -85,7 +86,7 @@ function generateFileContent(
   const configLines = configs
     .map(
       (c) =>
-        `  { id: "${c.id}", sourceImageId: "${c.sourceImageId}", answer: "${c.answer}", enabled: ${c.enabled !== false}, crop: { x: ${c.crop.x}, y: ${c.crop.y}, width: ${c.crop.width}, height: ${c.crop.height} }, zoom: ${c.zoom ?? 1.0}, mask: { enabled: ${c.mask.enabled}, blurPercent: ${c.mask.blurPercent} }, updatedAt: "${c.updatedAt}" },`
+        `  { id: "${c.id}", sourceImageId: "${c.sourceImageId}", answer: "${c.answer}", enabled: ${c.enabled !== false}, crop: { x: ${c.crop.x}, y: ${c.crop.y}, width: ${c.crop.width}, height: ${c.crop.height} }${c.displayMaxWidth != null ? `, displayMaxWidth: ${c.displayMaxWidth}` : ""}${c.displayMaxHeight != null ? `, displayMaxHeight: ${c.displayMaxHeight}` : ""}, mask: { enabled: ${c.mask.enabled}, blurPercent: ${c.mask.blurPercent} }, updatedAt: "${c.updatedAt}" },`
     )
     .join("\n");
 
