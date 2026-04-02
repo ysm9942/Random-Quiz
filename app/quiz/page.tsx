@@ -6,7 +6,6 @@ import { useQuiz } from "@/hooks/useQuiz";
 import QuizImage from "@/components/quiz/QuizImage";
 import Button from "@/components/ui/Button";
 import ProgressBar from "@/components/ui/ProgressBar";
-import { getModeLabel } from "@/lib/utils";
 import { Person } from "@/types";
 
 export default function QuizPage() {
@@ -61,9 +60,6 @@ export default function QuizPage() {
             >
               ← 홈으로
             </button>
-            <span className="text-sm text-muted font-medium px-3 py-1 bg-card rounded-full border border-border">
-              {getModeLabel(currentQuestion.config.mode)}
-            </span>
           </div>
           <ProgressBar current={currentIndex + 1} total={totalQuestions} />
         </div>
@@ -134,29 +130,22 @@ export default function QuizPage() {
         {/* Feedback */}
         {showResult && (
           <div
-            className={`rounded-xl p-4 border ${
+            className={`rounded-xl p-4 border text-center ${
               isCorrect
                 ? "bg-success/5 border-success/30"
                 : "bg-danger/5 border-danger/30"
             }`}
           >
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-lg">
-                {isCorrect ? "🎉" : "😢"}
-              </span>
-              <span
-                className={`font-bold ${
-                  isCorrect ? "text-success" : "text-danger"
-                }`}
-              >
-                {isCorrect ? "정답!" : "오답!"}
-              </span>
-            </div>
-            {currentQuestion.config.explanation && (
-              <p className="text-sm text-muted">
-                {currentQuestion.config.explanation}
-              </p>
-            )}
+            <span className="text-lg mr-2">
+              {isCorrect ? "🎉" : "😢"}
+            </span>
+            <span
+              className={`font-bold ${
+                isCorrect ? "text-success" : "text-danger"
+              }`}
+            >
+              {isCorrect ? "정답!" : "오답!"}
+            </span>
           </div>
         )}
 

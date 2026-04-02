@@ -1,5 +1,5 @@
 import { GradeBadge, QuizQuestion } from "@/types";
-import { getQuizConfigs } from "@/data/quiz-configs";
+import { getQuizConfigs, getQuizSettings } from "@/data/quiz-configs";
 import { getImageById } from "@/data/images";
 
 export function shuffleArray<T>(array: T[]): T[] {
@@ -13,16 +13,28 @@ export function shuffleArray<T>(array: T[]): T[] {
 
 export function loadQuizQuestions(): QuizQuestion[] {
   const configs = getQuizConfigs();
-  const questions: QuizQuestion[] = [];
+  const settings = getQuizSettings();
 
+  const allQuestions: QuizQuestion[] = [];
   for (const config of configs) {
     const image = getImageById(config.sourceImageId);
     if (image) {
-      questions.push({ config, image });
+      allQuestions.push({ config, image });
     }
   }
 
-  return shuffleArray(questions);
+  const jjondeuk = shuffleArray(
+    allQuestions.filter((q) => q.config.answer === "쫀득")
+  ).slice(0, settings.jjondeukQuestions);
+
+  const nongrut = shuffleArray(
+    allQuestions.filter((q) => q.config.answer === "농루트")
+  ).slice(0, settings.nongrutQuestions);
+
+  const combined = [...jjondeuk, ...nongrut];
+  const totalLimit = settings.totalQuestions;
+
+  return shuffleArray(combined).slice(0, totalLimit);
 }
 
 export function calculateAccuracy(correct: number, total: number): number {
@@ -69,25 +81,6 @@ export function getGradeBadge(accuracy: number): GradeBadge {
     color: "from-red-400 to-rose-600",
     description: "더 많이 봐야 할 것 같아요!",
   };
-}
-
-export function getModeLabel(mode: string): string {
-  const labels: Record<string, string> = {
-    eyes: "눈",
-    nose: "코",
-    mouth: "입",
-    partial_mask: "부분 가림",
-  };
-  return labels[mode] || mode;
-}
-
-export function getMaskStyleLabel(style: string): string {
-  const labels: Record<string, string> = {
-    black: "검정 마스크",
-    blur: "블러 처리",
-    pixel: "픽셀 처리",
-  };
-  return labels[style] || style;
 }
 
 export function generateId(): string {

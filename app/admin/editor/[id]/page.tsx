@@ -11,26 +11,19 @@ import QuizImage from "@/components/quiz/QuizImage";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import { generateId, getModeLabel, getMaskStyleLabel } from "@/lib/utils";
+import { generateId } from "@/lib/utils";
 import {
   Person,
-  QuizMode,
-  MaskStyle,
   CropRegion,
   QuizConfig,
 } from "@/types";
 
-const QUIZ_MODES: QuizMode[] = ["eyes", "nose", "mouth", "partial_mask"];
-const MASK_STYLES: MaskStyle[] = ["black", "blur", "pixel"];
-
 interface EditorState {
-  mode: QuizMode;
   crop: CropRegion;
   zoom: number;
   maskEnabled: boolean;
-  maskStyle: MaskStyle;
+  blurPercent: number;
   answer: Person;
-  explanation: string;
 }
 
 export default function EditorPage({
@@ -43,6 +36,7 @@ export default function EditorPage({
   const image = getImageById(id);
   const existingConfig = getQuizConfigByImageId(id);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [saved, setSaved] = useState(false);
@@ -50,23 +44,19 @@ export default function EditorPage({
   const [state, setState] = useState<EditorState>(() => {
     if (existingConfig) {
       return {
-        mode: existingConfig.mode,
         crop: { ...existingConfig.crop },
         zoom: existingConfig.zoom,
         maskEnabled: existingConfig.mask.enabled,
-        maskStyle: existingConfig.mask.style,
+        blurPercent: existingConfig.mask.blurPercent,
         answer: existingConfig.answer,
-        explanation: existingConfig.explanation,
       };
     }
     return {
-      mode: "eyes",
       crop: { x: 50, y: 50, width: 200, height: 150 },
       zoom: 1.0,
       maskEnabled: false,
-      maskStyle: "black",
+      blurPercent: 30,
       answer: image?.person ?? "쫀득",
-      explanation: "",
     };
   });
 
@@ -89,43 +79,49 @@ export default function EditorPage({
     []
   );
 
-  // Drag-to-crop on the image canvas
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (!canvasRef.current) return;
-      const rect = canvasRef.current.getBoundingClientRect();
-      setIsDragging(true);
-      setDragStart({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      });
+  // Convert mouse position to image-relative coordinates
+  const getImageRelativePos = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!canvasRef.current || !imgRef.current) return { x: 0, y: 0 };
+      const imgRect = imgRef.current.getBoundingClientRect();
+      return {
+        x: Math.round(clientX - imgRect.left),
+        y: Math.round(clientY - imgRect.top),
+      };
     },
     []
   );
 
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      const pos = getImageRelativePos(e.clientX, e.clientY);
+      setIsDragging(true);
+      setDragStart(pos);
+    },
+    [getImageRelativePos]
+  );
+
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      if (!isDragging || !canvasRef.current) return;
-      const rect = canvasRef.current.getBoundingClientRect();
-      const currentX = e.clientX - rect.left;
-      const currentY = e.clientY - rect.top;
+      if (!isDragging) return;
+      const pos = getImageRelativePos(e.clientX, e.clientY);
 
-      const x = Math.min(dragStart.x, currentX);
-      const y = Math.min(dragStart.y, currentY);
-      const width = Math.abs(currentX - dragStart.x);
-      const height = Math.abs(currentY - dragStart.y);
+      const x = Math.max(0, Math.min(dragStart.x, pos.x));
+      const y = Math.max(0, Math.min(dragStart.y, pos.y));
+      const width = Math.abs(pos.x - dragStart.x);
+      const height = Math.abs(pos.y - dragStart.y);
 
       setState((prev) => ({
         ...prev,
         crop: {
-          x: Math.round(x),
-          y: Math.round(y),
-          width: Math.max(20, Math.round(width)),
-          height: Math.max(20, Math.round(height)),
+          x,
+          y,
+          width: Math.max(20, width),
+          height: Math.max(20, height),
         },
       }));
     },
-    [isDragging, dragStart]
+    [isDragging, dragStart, getImageRelativePos]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -145,14 +141,12 @@ export default function EditorPage({
       id: existingConfig?.id ?? `quiz-${generateId()}`,
       sourceImageId: image.id,
       answer: state.answer,
-      mode: state.mode,
       crop: { ...state.crop },
       zoom: state.zoom,
       mask: {
         enabled: state.maskEnabled,
-        style: state.maskStyle,
+        blurPercent: state.blurPercent,
       },
-      explanation: state.explanation,
       updatedAt: new Date().toISOString(),
     };
 
@@ -190,12 +184,8 @@ export default function EditorPage({
             <p className="text-sm text-muted">{image.name}</p>
           </div>
           <div className="flex items-center gap-3">
-            {saved && (
-              <Badge variant="success">저장됨!</Badge>
-            )}
-            {existingConfig && (
-              <Badge variant="info">기존 설정 있음</Badge>
-            )}
+            {saved && <Badge variant="success">저장됨!</Badge>}
+            {existingConfig && <Badge variant="info">기존 설정 있음</Badge>}
           </div>
         </div>
 
@@ -210,16 +200,17 @@ export default function EditorPage({
               </h3>
               <div
                 ref={canvasRef}
-                className="relative bg-black rounded-xl overflow-hidden cursor-crosshair select-none"
-                style={{ height: 350 }}
+                className="relative bg-black rounded-xl overflow-hidden cursor-crosshair select-none inline-block"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
               >
                 <img
+                  ref={imgRef}
                   src={image.originalUrl}
                   alt={image.name}
-                  className="w-full h-full object-contain"
+                  className="block max-w-full h-auto"
+                  style={{ maxHeight: 400 }}
                   draggable={false}
                 />
                 {/* Crop overlay */}
@@ -270,52 +261,23 @@ export default function EditorPage({
               </div>
             </Card>
 
-            {/* Mode & Answer */}
+            {/* Answer */}
             <Card>
-              <div className="grid grid-cols-2 gap-4">
-                {/* Mode */}
-                <div>
-                  <label className="block text-xs text-muted mb-2">
-                    문제 타입
-                  </label>
-                  <div className="space-y-1.5">
-                    {QUIZ_MODES.map((mode) => (
-                      <button
-                        key={mode}
-                        onClick={() => updateField("mode", mode)}
-                        className={`w-full px-3 py-2 rounded-lg text-sm text-left transition-all cursor-pointer ${
-                          state.mode === mode
-                            ? "bg-primary text-white"
-                            : "bg-background border border-border hover:border-primary/30"
-                        }`}
-                      >
-                        {getModeLabel(mode)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Answer */}
-                <div>
-                  <label className="block text-xs text-muted mb-2">
-                    정답
-                  </label>
-                  <div className="space-y-1.5">
-                    {(["쫀득", "농루트"] as Person[]).map((person) => (
-                      <button
-                        key={person}
-                        onClick={() => updateField("answer", person)}
-                        className={`w-full px-3 py-2 rounded-lg text-sm text-left transition-all cursor-pointer ${
-                          state.answer === person
-                            ? "bg-primary text-white"
-                            : "bg-background border border-border hover:border-primary/30"
-                        }`}
-                      >
-                        {person}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <label className="block text-xs text-muted mb-2">정답</label>
+              <div className="flex gap-2">
+                {(["쫀득", "농루트"] as Person[]).map((person) => (
+                  <button
+                    key={person}
+                    onClick={() => updateField("answer", person)}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm text-center transition-all cursor-pointer ${
+                      state.answer === person
+                        ? "bg-primary text-white"
+                        : "bg-background border border-border hover:border-primary/30"
+                    }`}
+                  >
+                    {person}
+                  </button>
+                ))}
               </div>
             </Card>
 
@@ -341,11 +303,11 @@ export default function EditorPage({
               </div>
             </Card>
 
-            {/* Mask */}
+            {/* Blur Mask */}
             <Card>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-muted">
-                  마스크 (Mask)
+                  블러 처리
                 </h3>
                 <button
                   onClick={() =>
@@ -365,38 +327,28 @@ export default function EditorPage({
                 </button>
               </div>
               {state.maskEnabled && (
-                <div className="flex gap-2">
-                  {MASK_STYLES.map((style) => (
-                    <button
-                      key={style}
-                      onClick={() => updateField("maskStyle", style)}
-                      className={`flex-1 px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
-                        state.maskStyle === style
-                          ? "bg-primary text-white"
-                          : "bg-background border border-border hover:border-primary/30"
-                      }`}
-                    >
-                      {getMaskStyleLabel(style)}
-                    </button>
-                  ))}
+                <div>
+                  <div className="flex justify-between text-xs text-muted mb-1">
+                    <span>블러 강도</span>
+                    <span>{state.blurPercent}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={state.blurPercent}
+                    onChange={(e) =>
+                      updateField("blurPercent", parseInt(e.target.value))
+                    }
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted mt-1">
+                    <span>0%</span>
+                    <span>100%</span>
+                  </div>
                 </div>
               )}
-            </Card>
-
-            {/* Explanation */}
-            <Card>
-              <h3 className="text-sm font-semibold text-muted mb-2">
-                해설
-              </h3>
-              <textarea
-                value={state.explanation}
-                onChange={(e) =>
-                  updateField("explanation", e.target.value)
-                }
-                placeholder="정답에 대한 해설을 입력하세요..."
-                rows={3}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors resize-none"
-              />
             </Card>
           </div>
 
@@ -407,7 +359,6 @@ export default function EditorPage({
                 미리보기
               </h3>
 
-              {/* Quiz Preview */}
               <div className="bg-background rounded-xl p-6 space-y-4">
                 <div className="text-center text-xs text-muted">
                   퀴즈 화면 미리보기
@@ -420,7 +371,7 @@ export default function EditorPage({
                     zoom={state.zoom}
                     mask={{
                       enabled: state.maskEnabled,
-                      style: state.maskStyle,
+                      blurPercent: state.blurPercent,
                     }}
                     className="shadow-xl"
                   />
@@ -445,20 +396,10 @@ export default function EditorPage({
                     </div>
                   ))}
                 </div>
-
-                {state.explanation && (
-                  <div className="bg-success/5 border border-success/20 rounded-lg p-3 text-sm text-muted">
-                    {state.explanation}
-                  </div>
-                )}
               </div>
 
               {/* Config Summary */}
               <div className="mt-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted">타입</span>
-                  <span>{getModeLabel(state.mode)}</span>
-                </div>
                 <div className="flex justify-between">
                   <span className="text-muted">정답</span>
                   <span>{state.answer}</span>
@@ -468,10 +409,10 @@ export default function EditorPage({
                   <span>{state.zoom.toFixed(1)}x</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted">마스크</span>
+                  <span className="text-muted">블러</span>
                   <span>
                     {state.maskEnabled
-                      ? getMaskStyleLabel(state.maskStyle)
+                      ? `${state.blurPercent}%`
                       : "없음"}
                   </span>
                 </div>

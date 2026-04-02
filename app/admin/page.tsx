@@ -3,11 +3,11 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { sourceImages } from "@/data/images";
-import { getQuizConfigs, getQuizConfigByImageId } from "@/data/quiz-configs";
+import { getQuizConfigs, getQuizConfigByImageId, getQuizSettings, saveQuizSettings } from "@/data/quiz-configs";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
 import PinGate from "@/components/ui/PinGate";
-import { getModeLabel } from "@/lib/utils";
 import { Person } from "@/types";
 
 type FilterType = "all" | Person;
@@ -15,6 +15,8 @@ type FilterType = "all" | Person;
 export default function AdminPage() {
   const [filter, setFilter] = useState<FilterType>("all");
   const configs = getQuizConfigs();
+  const [settings, setSettings] = useState(getQuizSettings);
+  const [settingsSaved, setSettingsSaved] = useState(false);
 
   const filteredImages = useMemo(() => {
     if (filter === "all") return sourceImages;
@@ -22,12 +24,14 @@ export default function AdminPage() {
   }, [filter]);
 
   const totalConfigs = configs.length;
-  const jjondeukConfigs = configs.filter(
-    (c) => c.answer === "쫀득"
-  ).length;
-  const nongrutConfigs = configs.filter(
-    (c) => c.answer === "농루트"
-  ).length;
+  const jjondeukConfigs = configs.filter((c) => c.answer === "쫀득").length;
+  const nongrutConfigs = configs.filter((c) => c.answer === "농루트").length;
+
+  const handleSaveSettings = () => {
+    saveQuizSettings(settings);
+    setSettingsSaved(true);
+    setTimeout(() => setSettingsSaved(false), 2000);
+  };
 
   return (
     <PinGate
@@ -38,20 +42,73 @@ export default function AdminPage() {
     <main className="flex-1 px-4 py-8">
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <Link
-              href="/"
-              className="text-sm text-muted hover:text-foreground transition-colors"
-            >
-              ← 홈으로
-            </Link>
-            <h1 className="text-3xl font-black mt-2">관리자 설정</h1>
-            <p className="text-muted mt-1">
-              이미지를 선택해 퀴즈 문제를 생성하거나 편집하세요.
-            </p>
-          </div>
+        <div>
+          <Link
+            href="/"
+            className="text-sm text-muted hover:text-foreground transition-colors"
+          >
+            ← 홈으로
+          </Link>
+          <h1 className="text-3xl font-black mt-2">관리자 설정</h1>
+          <p className="text-muted mt-1">
+            이미지를 선택해 퀴즈 문제를 생성하거나 편집하세요.
+          </p>
         </div>
+
+        {/* Quiz Settings */}
+        <Card>
+          <h3 className="text-sm font-semibold text-muted mb-4">퀴즈 출제 설정</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs text-muted mb-1">전체 문제 수</label>
+              <input
+                type="number"
+                min={1}
+                value={settings.totalQuestions}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, totalQuestions: parseInt(e.target.value) || 1 }))
+                }
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-muted mb-1">
+                쫀득 문제 수 <span className="text-violet-400">(설정됨: {jjondeukConfigs}개)</span>
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={settings.jjondeukQuestions}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, jjondeukQuestions: parseInt(e.target.value) || 0 }))
+                }
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-muted mb-1">
+                농루트 문제 수 <span className="text-cyan-400">(설정됨: {nongrutConfigs}개)</span>
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={settings.nongrutQuestions}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, nongrutQuestions: parseInt(e.target.value) || 0 }))
+                }
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-3">
+            <Button size="sm" onClick={handleSaveSettings}>
+              {settingsSaved ? "저장됨!" : "설정 저장"}
+            </Button>
+            <span className="text-xs text-muted">
+              전체 {totalConfigs}개 문제 중 랜덤으로 출제됩니다.
+            </span>
+          </div>
+        </Card>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -101,7 +158,6 @@ export default function AdminPage() {
             return (
               <Link key={image.id} href={`/admin/editor/${image.id}`}>
                 <Card hoverable className="space-y-3">
-                  {/* Thumbnail */}
                   <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
                     <img
                       src={image.thumbnailUrl}
@@ -114,8 +170,6 @@ export default function AdminPage() {
                       </div>
                     )}
                   </div>
-
-                  {/* Info */}
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-semibold text-sm">{image.name}</h3>
@@ -123,21 +177,7 @@ export default function AdminPage() {
                         {image.person}
                       </p>
                     </div>
-                    {config && (
-                      <Badge variant="info">
-                        {getModeLabel(config.mode)}
-                      </Badge>
-                    )}
                   </div>
-
-                  {/* Tags */}
-                  {image.tags && image.tags.length > 0 && (
-                    <div className="flex gap-1.5">
-                      {image.tags.map((tag) => (
-                        <Badge key={tag}>{tag}</Badge>
-                      ))}
-                    </div>
-                  )}
                 </Card>
               </Link>
             );

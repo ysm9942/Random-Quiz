@@ -1,9 +1,5 @@
 export type Person = "쫀득" | "농루트";
 
-export type QuizMode = "eyes" | "nose" | "mouth" | "partial_mask";
-
-export type MaskStyle = "black" | "blur" | "pixel";
-
 export interface CropRegion {
   x: number;
   y: number;
@@ -13,7 +9,7 @@ export interface CropRegion {
 
 export interface MaskConfig {
   enabled: boolean;
-  style: MaskStyle;
+  blurPercent: number;
 }
 
 export interface SourceImage {
@@ -29,12 +25,16 @@ export interface QuizConfig {
   id: string;
   sourceImageId: string;
   answer: Person;
-  mode: QuizMode;
   crop: CropRegion;
   zoom: number;
   mask: MaskConfig;
-  explanation: string;
   updatedAt: string;
+}
+
+export interface QuizSettings {
+  totalQuestions: number;
+  jjondeukQuestions: number;
+  nongrutQuestions: number;
 }
 
 export interface QuizQuestion {

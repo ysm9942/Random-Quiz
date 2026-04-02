@@ -20,12 +20,13 @@ export default function QuizImage({
   const containerWidth = 360;
   const containerHeight = 300;
 
+  const blurPx = mask.enabled ? (mask.blurPercent / 100) * 20 : 0;
+
   return (
     <div
       className={`relative overflow-hidden rounded-xl bg-black ${className}`}
       style={{ width: containerWidth, height: containerHeight }}
     >
-      {/* Cropped and zoomed image */}
       <div
         className="absolute inset-0 overflow-hidden"
         style={{
@@ -49,37 +50,15 @@ export default function QuizImage({
         />
       </div>
 
-      {/* Mask overlay */}
-      {mask.enabled && (
+      {mask.enabled && blurPx > 0 && (
         <div
           className="absolute inset-0"
-          style={getMaskStyle(mask.style)}
+          style={{
+            backdropFilter: `blur(${blurPx}px)`,
+            WebkitBackdropFilter: `blur(${blurPx}px)`,
+          }}
         />
       )}
     </div>
   );
-}
-
-function getMaskStyle(style: string): React.CSSProperties {
-  switch (style) {
-    case "black":
-      return {
-        backgroundColor: "rgba(0, 0, 0, 0.6)",
-      };
-    case "blur":
-      return {
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
-      };
-    case "pixel":
-      return {
-        backdropFilter: "blur(12px) contrast(1.5)",
-        WebkitBackdropFilter: "blur(12px) contrast(1.5)",
-        imageRendering: "pixelated" as const,
-        background:
-          "repeating-conic-gradient(rgba(0,0,0,0.1) 0% 25%, transparent 0% 50%) 0 0 / 12px 12px",
-      };
-    default:
-      return {};
-  }
 }
