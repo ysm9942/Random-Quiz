@@ -6,6 +6,7 @@ import { sourceImages } from "@/data/images";
 import { getQuizConfigs, getQuizConfigByImageId } from "@/data/quiz-configs";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
+import PinGate from "@/components/ui/PinGate";
 import { getModeLabel } from "@/lib/utils";
 import { Person } from "@/types";
 
@@ -29,6 +30,11 @@ export default function AdminPage() {
   ).length;
 
   return (
+    <PinGate
+      storageKey="admin-auth"
+      title="관리자 인증"
+      description="관리자 페이지에 접속하려면 PIN을 입력하세요."
+    >
     <main className="flex-1 px-4 py-8">
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header */}
@@ -139,5 +145,6 @@ export default function AdminPage() {
         </div>
       </div>
     </main>
+    </PinGate>
   );
 }
