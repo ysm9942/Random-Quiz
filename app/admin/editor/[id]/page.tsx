@@ -35,7 +35,7 @@ export default function EditorPage({
   const router = useRouter();
   const image = getImageById(id);
   const existingConfig = getQuizConfigByImageId(id);
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const eventLayerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [saved, setSaved] = useState(false);
@@ -78,63 +78,78 @@ export default function EditorPage({
     []
   );
 
-  // Get mouse position relative to the wrapper using getBoundingClientRect
-  const getPos = useCallback((e: React.MouseEvent) => {
-    if (!wrapperRef.current) return { x: 0, y: 0 };
-    const rect = wrapperRef.current.getBoundingClientRect();
-    return {
-      x: Math.round(e.clientX - rect.left),
-      y: Math.round(e.clientY - rect.top),
-    };
-  }, []);
-
+  // Use nativeEvent.offsetX/Y on the transparent event layer
+  // This gives exact pixel coordinates relative to the element itself
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      const pos = getPos(e);
+      const x = e.nativeEvent.offsetX;
+      const y = e.nativeEvent.offsetY;
       setIsDragging(true);
-      setDragStart(pos);
-      // Set initial crop point
+      setDragStart({ x, y });
       setState((prev) => ({
         ...prev,
-        crop: { x: pos.x, y: pos.y, width: 20, height: 20 },
+        crop: { x, y, width: 20, height: 20 },
       }));
     },
-    [getPos]
+    []
   );
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (!isDragging) return;
       e.preventDefault();
-      const pos = getPos(e);
+      const curX = e.nativeEvent.offsetX;
+      const curY = e.nativeEvent.offsetY;
 
-      const x = Math.max(0, Math.min(dragStart.x, pos.x));
-      const y = Math.max(0, Math.min(dragStart.y, pos.y));
-      const width = Math.abs(pos.x - dragStart.x);
-      const height = Math.abs(pos.y - dragStart.y);
+      const x = Math.max(0, Math.min(dragStart.x, curX));
+      const y = Math.max(0, Math.min(dragStart.y, curY));
+      const width = Math.abs(curX - dragStart.x);
+      const height = Math.abs(curY - dragStart.y);
 
       setState((prev) => ({
         ...prev,
         crop: {
           x,
           y,
-          width: Math.max(20, width),
-          height: Math.max(20, height),
+          width: Math.max(10, width),
+          height: Math.max(10, height),
         },
       }));
     },
-    [isDragging, dragStart, getPos]
+    [isDragging, dragStart]
   );
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
   }, []);
 
+  // Mouse wheel zoom on the image area
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setState((prev) => ({
+        ...prev,
+        zoom: Math.round(Math.min(4, Math.max(0.5, prev.zoom + delta)) * 10) / 10,
+      }));
+    },
+    []
+  );
+
   useEffect(() => {
     const handleGlobalUp = () => setIsDragging(false);
     window.addEventListener("mouseup", handleGlobalUp);
     return () => window.removeEventListener("mouseup", handleGlobalUp);
+  }, []);
+
+  // Prevent default wheel scroll on the event layer
+  useEffect(() => {
+    const el = eventLayerRef.current;
+    if (!el) return;
+    const preventScroll = (e: WheelEvent) => e.preventDefault();
+    el.addEventListener("wheel", preventScroll, { passive: false });
+    return () => el.removeEventListener("wheel", preventScroll);
   }, []);
 
   const handleSave = useCallback(() => {
@@ -199,28 +214,29 @@ export default function EditorPage({
             {/* Image Canvas */}
             <Card>
               <h3 className="text-sm font-semibold text-muted mb-3">
-                원본 이미지 (드래그로 영역 지정)
+                원본 이미지 (드래그로 영역 지정, 휠로 줌)
               </h3>
               {/*
-                wrapper: position:relative, display:inline-block
-                This ensures the wrapper exactly matches the rendered image size.
-                The crop overlay and mouse events are all relative to this wrapper.
+                Image wrapper: the image sets the size,
+                a transparent div on top captures all mouse events.
+                offsetX/offsetY on the transparent layer = exact image coordinates.
               */}
-              <div
-                ref={wrapperRef}
-                className="relative inline-block cursor-crosshair select-none"
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-              >
+              <div className="relative inline-block" style={{ lineHeight: 0 }}>
+                {/* The actual image - no pointer events */}
                 <img
                   src={image.originalUrl}
                   alt={image.name}
                   className="block rounded-xl"
-                  style={{ maxWidth: "100%", maxHeight: 450, width: "auto", height: "auto" }}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: 450,
+                    pointerEvents: "none",
+                    userSelect: "none",
+                  }}
                   draggable={false}
                 />
-                {/* Crop overlay - positioned relative to the wrapper which matches image size */}
+
+                {/* Crop overlay - visual only */}
                 <div
                   className="absolute border-2 border-primary bg-primary/20 pointer-events-none rounded"
                   style={{
@@ -234,6 +250,20 @@ export default function EditorPage({
                     {state.crop.width} x {state.crop.height}
                   </div>
                 </div>
+
+                {/* Transparent event capture layer - sits on top, exact same size as image */}
+                <div
+                  ref={eventLayerRef}
+                  className="absolute inset-0 cursor-crosshair"
+                  style={{ zIndex: 10 }}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onWheel={handleWheel}
+                />
+              </div>
+              <div className="mt-2 text-xs text-muted">
+                줌: {state.zoom.toFixed(1)}x
               </div>
             </Card>
 
