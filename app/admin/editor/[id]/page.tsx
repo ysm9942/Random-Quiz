@@ -35,9 +35,8 @@ export default function EditorPage({
   const router = useRouter();
   const image = getImageById(id);
   const existingConfig = getQuizConfigByImageId(id);
-  const eventLayerRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
   const [saved, setSaved] = useState(false);
 
   const [state, setState] = useState<EditorState>(() => {
@@ -59,6 +58,25 @@ export default function EditorPage({
     };
   });
 
+  // Track rendered image size for sliders max values
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img) return;
+    const update = () => {
+      if (img.naturalWidth > 0) {
+        setImgSize({ w: img.clientWidth, h: img.clientHeight });
+      }
+    };
+    img.addEventListener("load", update);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(img);
+    return () => {
+      img.removeEventListener("load", update);
+      ro.disconnect();
+    };
+  }, []);
+
   const updateField = useCallback(
     <K extends keyof EditorState>(key: K, value: EditorState[K]) => {
       setState((prev) => ({ ...prev, [key]: value }));
@@ -71,86 +89,55 @@ export default function EditorPage({
     <K extends keyof CropRegion>(key: K, value: number) => {
       setState((prev) => ({
         ...prev,
-        crop: { ...prev.crop, [key]: value },
+        crop: { ...prev.crop, [key]: Math.max(0, value) },
       }));
       setSaved(false);
     },
     []
   );
 
-  // Use nativeEvent.offsetX/Y on the transparent event layer
-  // This gives exact pixel coordinates relative to the element itself
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      const x = e.nativeEvent.offsetX;
-      const y = e.nativeEvent.offsetY;
-      setIsDragging(true);
-      setDragStart({ x, y });
-      setState((prev) => ({
-        ...prev,
-        crop: { x, y, width: 20, height: 20 },
-      }));
+  // Click on image = set crop center point
+  const handleImageClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = Math.round(e.clientX - rect.left);
+      const clickY = Math.round(e.clientY - rect.top);
+
+      setState((prev) => {
+        const halfW = Math.round(prev.crop.width / 2);
+        const halfH = Math.round(prev.crop.height / 2);
+        return {
+          ...prev,
+          crop: {
+            ...prev.crop,
+            x: Math.max(0, clickX - halfW),
+            y: Math.max(0, clickY - halfH),
+          },
+        };
+      });
+      setSaved(false);
     },
     []
   );
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isDragging) return;
-      e.preventDefault();
-      const curX = e.nativeEvent.offsetX;
-      const curY = e.nativeEvent.offsetY;
-
-      const x = Math.max(0, Math.min(dragStart.x, curX));
-      const y = Math.max(0, Math.min(dragStart.y, curY));
-      const width = Math.abs(curX - dragStart.x);
-      const height = Math.abs(curY - dragStart.y);
-
-      setState((prev) => ({
-        ...prev,
-        crop: {
-          x,
-          y,
-          width: Math.max(10, width),
-          height: Math.max(10, height),
-        },
-      }));
-    },
-    [isDragging, dragStart]
-  );
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
+  // Mouse wheel zoom on image
+  const handleWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setState((prev) => ({
+      ...prev,
+      zoom: Math.round(Math.min(4, Math.max(0.5, prev.zoom + delta)) * 10) / 10,
+    }));
   }, []);
-
-  // Mouse wheel zoom on the image area
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      setState((prev) => ({
-        ...prev,
-        zoom: Math.round(Math.min(4, Math.max(0.5, prev.zoom + delta)) * 10) / 10,
-      }));
-    },
-    []
-  );
 
   useEffect(() => {
-    const handleGlobalUp = () => setIsDragging(false);
-    window.addEventListener("mouseup", handleGlobalUp);
-    return () => window.removeEventListener("mouseup", handleGlobalUp);
-  }, []);
-
-  // Prevent default wheel scroll on the event layer
-  useEffect(() => {
-    const el = eventLayerRef.current;
-    if (!el) return;
-    const preventScroll = (e: WheelEvent) => e.preventDefault();
-    el.addEventListener("wheel", preventScroll, { passive: false });
-    return () => el.removeEventListener("wheel", preventScroll);
-  }, []);
+    const img = imgRef.current;
+    if (!img) return;
+    const parent = img.parentElement;
+    if (!parent) return;
+    parent.addEventListener("wheel", handleWheel, { passive: false });
+    return () => parent.removeEventListener("wheel", handleWheel);
+  }, [handleWheel]);
 
   const handleSave = useCallback(() => {
     if (!image) return;
@@ -186,6 +173,9 @@ export default function EditorPage({
     );
   }
 
+  const maxW = imgSize.w || 600;
+  const maxH = imgSize.h || 400;
+
   return (
     <main className="flex-1 px-4 py-8">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -207,23 +197,21 @@ export default function EditorPage({
           </div>
         </div>
 
-        {/* Main layout: Left = Editor, Right = Preview */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left: Editor */}
           <div className="space-y-6">
-            {/* Image Canvas */}
+            {/* Image + Click to position */}
             <Card>
               <h3 className="text-sm font-semibold text-muted mb-3">
-                원본 이미지 (드래그로 영역 지정, 휠로 줌)
+                원본 이미지 (클릭으로 영역 이동, 휠로 줌)
               </h3>
-              {/*
-                Image wrapper: the image sets the size,
-                a transparent div on top captures all mouse events.
-                offsetX/offsetY on the transparent layer = exact image coordinates.
-              */}
-              <div className="relative inline-block" style={{ lineHeight: 0 }}>
-                {/* The actual image - no pointer events */}
+              <div
+                className="relative inline-block cursor-crosshair select-none"
+                style={{ lineHeight: 0 }}
+                onClick={handleImageClick}
+              >
                 <img
+                  ref={imgRef}
                   src={image.originalUrl}
                   alt={image.name}
                   className="block rounded-xl"
@@ -235,8 +223,7 @@ export default function EditorPage({
                   }}
                   draggable={false}
                 />
-
-                {/* Crop overlay - visual only */}
+                {/* Crop overlay */}
                 <div
                   className="absolute border-2 border-primary bg-primary/20 pointer-events-none rounded"
                   style={{
@@ -244,57 +231,85 @@ export default function EditorPage({
                     top: state.crop.y,
                     width: state.crop.width,
                     height: state.crop.height,
+                    transition: "all 0.15s ease-out",
                   }}
                 >
                   <div className="absolute -top-6 left-0 text-xs bg-primary text-white px-1.5 py-0.5 rounded whitespace-nowrap">
                     {state.crop.width} x {state.crop.height}
                   </div>
                 </div>
-
-                {/* Transparent event capture layer - sits on top, exact same size as image */}
-                <div
-                  ref={eventLayerRef}
-                  className="absolute inset-0 cursor-crosshair"
-                  style={{ zIndex: 10 }}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onWheel={handleWheel}
-                />
               </div>
-              <div className="mt-2 text-xs text-muted">
-                줌: {state.zoom.toFixed(1)}x
-              </div>
+              <p className="mt-2 text-xs text-muted">
+                줌: {state.zoom.toFixed(1)}x · 이미지를 클릭하면 영역이 이동합니다
+              </p>
             </Card>
 
-            {/* Crop Controls */}
+            {/* Crop Size & Position Sliders */}
             <Card>
-              <h3 className="text-sm font-semibold text-muted mb-3">
-                Crop 좌표
+              <h3 className="text-sm font-semibold text-muted mb-4">
+                영역 크기 · 위치
               </h3>
-              <div className="grid grid-cols-2 gap-4">
-                {(
-                  [
-                    ["x", "X"],
-                    ["y", "Y"],
-                    ["width", "너비"],
-                    ["height", "높이"],
-                  ] as const
-                ).map(([key, label]) => (
-                  <div key={key}>
-                    <label className="block text-xs text-muted mb-1">
-                      {label}
-                    </label>
-                    <input
-                      type="number"
-                      value={state.crop[key]}
-                      onChange={(e) =>
-                        updateCrop(key, parseInt(e.target.value) || 0)
-                      }
-                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
-                    />
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-xs text-muted mb-1">
+                    <span>너비</span>
+                    <span>{state.crop.width}px</span>
                   </div>
-                ))}
+                  <input
+                    type="range"
+                    min={30}
+                    max={maxW}
+                    step={1}
+                    value={state.crop.width}
+                    onChange={(e) => updateCrop("width", parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs text-muted mb-1">
+                    <span>높이</span>
+                    <span>{state.crop.height}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={30}
+                    max={maxH}
+                    step={1}
+                    value={state.crop.height}
+                    onChange={(e) => updateCrop("height", parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs text-muted mb-1">
+                    <span>X 위치</span>
+                    <span>{state.crop.x}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, maxW - state.crop.width)}
+                    step={1}
+                    value={state.crop.x}
+                    onChange={(e) => updateCrop("x", parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs text-muted mb-1">
+                    <span>Y 위치</span>
+                    <span>{state.crop.y}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, maxH - state.crop.height)}
+                    step={1}
+                    value={state.crop.y}
+                    onChange={(e) => updateCrop("y", parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
               </div>
             </Card>
 
