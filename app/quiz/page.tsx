@@ -71,6 +71,7 @@ export default function QuizPage() {
             crop={currentQuestion.config.crop}
             zoom={currentQuestion.config.zoom}
             mask={currentQuestion.config.mask}
+            maxHeight={220}
             className="shadow-2xl shadow-black/50"
           />
         </div>

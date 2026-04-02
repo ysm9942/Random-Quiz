@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CropRegion, MaskConfig } from "@/types";
 
 interface QuizImageProps {
@@ -8,20 +8,21 @@ interface QuizImageProps {
   crop: CropRegion;
   zoom?: number;   // 1.0 = show full crop, 2.0 = zoom into center 2x
   mask: MaskConfig;
+  maxHeight?: number; // optional cap on rendered height in px
   className?: string;
 }
 
-// Crop coords (x, y, width, height) are in NATURAL image pixel space.
-// zoom zooms into the center of the crop region.
-// CSS percentage positioning ensures pixel-perfect accuracy at any container size.
 export default function QuizImage({
   imageUrl,
   crop,
   zoom = 1,
   mask,
+  maxHeight,
   className = "",
 }: QuizImageProps) {
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerW, setContainerW] = useState(0);
 
   useEffect(() => {
     const img = new Image();
@@ -29,41 +30,54 @@ export default function QuizImage({
     img.src = imageUrl;
   }, [imageUrl]);
 
-  // Apply zoom: shrink the effective region around the center of the crop
+  // Track actual container width for pixel-precise layout
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setContainerW(el.clientWidth));
+    ro.observe(el);
+    setContainerW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  // Effective crop region after zoom (zoom into center)
   const effectiveW = crop.width / zoom;
   const effectiveH = crop.height / zoom;
   const effectiveX = crop.x + (crop.width - effectiveW) / 2;
   const effectiveY = crop.y + (crop.height - effectiveH) / 2;
 
-  // Container aspect ratio matches the effective (zoomed) crop region
-  const paddingBottom = `${(effectiveH / effectiveW) * 100}%`;
+  // Compute pixel layout from actual container width
+  let containerH = containerW > 0 ? containerW * (effectiveH / effectiveW) : 0;
+  if (maxHeight && containerH > maxHeight) containerH = maxHeight;
 
-  // Image width as % of container width:
-  //   img_display_width = container_width * (natural.w / effectiveW)
-  const imgWidthPct = naturalSize ? (naturalSize.w / effectiveW) * 100 : 0;
+  // Scale so effectiveW natural px = containerW display px (then adjust for capped height)
+  const scale = containerW > 0 ? Math.min(
+    containerW / effectiveW,
+    maxHeight ? containerH / effectiveH : Infinity
+  ) : 0;
 
-  // Image left: -effectiveX / effectiveW * 100%
-  const imgLeftPct = (-effectiveX / effectiveW) * 100;
-
-  // Image top: -effectiveY / effectiveH * 100%
-  const imgTopPct = (-effectiveY / effectiveH) * 100;
+  const imgW = naturalSize ? naturalSize.w * scale : 0;
+  const imgH = naturalSize ? naturalSize.h * scale : 0;
+  const imgLeft = -effectiveX * scale;
+  const imgTop = -effectiveY * scale;
 
   return (
     <div
+      ref={containerRef}
       className={`relative overflow-hidden rounded-xl bg-black ${className}`}
-      style={{ width: "100%", paddingBottom }}
+      style={{ width: "100%", height: containerH || undefined }}
     >
-      {naturalSize && (
+      {naturalSize && containerW > 0 && (
         <img
           src={imageUrl}
           alt="퀴즈 이미지"
           draggable={false}
           className="absolute select-none"
           style={{
-            width: `${imgWidthPct}%`,
-            height: "auto",
-            left: `${imgLeftPct}%`,
-            top: `${imgTopPct}%`,
+            width: imgW,
+            height: imgH,
+            left: imgLeft,
+            top: imgTop,
           }}
         />
       )}
