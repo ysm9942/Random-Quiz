@@ -7,7 +7,6 @@ interface QuizImageProps {
   imageUrl: string;
   crop: CropRegion;
   mask: MaskConfig;
-  maxWidth?: number;   // cap display width in px
   maxHeight?: number;  // cap display height in px
   className?: string;
 }
@@ -19,7 +18,6 @@ export default function QuizImage({
   imageUrl,
   crop,
   mask,
-  maxWidth,
   maxHeight,
   className = "",
 }: QuizImageProps) {

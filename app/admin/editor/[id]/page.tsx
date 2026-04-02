@@ -411,14 +411,17 @@ export default function EditorPage({
               <h3 className="text-sm font-semibold text-muted mb-4">미리보기</h3>
 
               <div className="bg-background rounded-xl p-4 space-y-4">
-                <QuizImage
-                  imageUrl={image.originalUrl}
-                  crop={{ x: state.cropX, y: state.cropY, width: state.cropW, height: state.cropH }}
-                  maxWidth={state.displayMaxWidth}
-                  maxHeight={state.displayMaxHeight}
-                  mask={{ enabled: false, blurPercent: 0 }}
-                  className="shadow-xl"
-                />
+                <div className="flex justify-center">
+                  <div style={{ width: "100%", maxWidth: state.displayMaxWidth }}>
+                    <QuizImage
+                      imageUrl={image.originalUrl}
+                      crop={{ x: state.cropX, y: state.cropY, width: state.cropW, height: state.cropH }}
+                      maxHeight={state.displayMaxHeight}
+                      mask={{ enabled: false, blurPercent: 0 }}
+                      className="shadow-xl"
+                    />
+                  </div>
+                </div>
 
                 <div className="text-center">
                   <p className="font-bold">이 사람은 누구일까요?</p>

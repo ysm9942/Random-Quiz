@@ -72,8 +72,8 @@ export default function QuizPage() {
             <QuizImage
               imageUrl={currentQuestion.image.originalUrl}
               crop={currentQuestion.config.crop}
-              mask={currentQuestion.config.mask}
               maxHeight={currentQuestion.config.displayMaxHeight ?? quizMaxHeight}
+              mask={currentQuestion.config.mask}
               className="shadow-2xl shadow-black/50"
             />
           </div>
