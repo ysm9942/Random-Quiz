@@ -71,7 +71,7 @@ export default function QuizPage() {
             crop={currentQuestion.config.crop}
             zoom={currentQuestion.config.zoom}
             mask={currentQuestion.config.mask}
-            className="w-full max-w-[360px] shadow-2xl shadow-black/50"
+            className="shadow-2xl shadow-black/50"
           />
         </div>
 
@@ -127,25 +127,39 @@ export default function QuizPage() {
           })}
         </div>
 
-        {/* Feedback */}
+        {/* Feedback + Original Image */}
         {showResult && (
-          <div
-            className={`rounded-xl p-4 border text-center ${
-              isCorrect
-                ? "bg-success/5 border-success/30"
-                : "bg-danger/5 border-danger/30"
-            }`}
-          >
-            <span className="text-lg mr-2">
-              {isCorrect ? "🎉" : "😢"}
-            </span>
-            <span
-              className={`font-bold ${
-                isCorrect ? "text-success" : "text-danger"
+          <div className="space-y-4">
+            <div
+              className={`rounded-xl p-4 border text-center ${
+                isCorrect
+                  ? "bg-success/5 border-success/30"
+                  : "bg-danger/5 border-danger/30"
               }`}
             >
-              {isCorrect ? "정답!" : "오답!"}
-            </span>
+              <span className="text-lg mr-2">
+                {isCorrect ? "🎉" : "😢"}
+              </span>
+              <span
+                className={`font-bold ${
+                  isCorrect ? "text-success" : "text-danger"
+                }`}
+              >
+                {isCorrect ? "정답!" : "오답!"}
+              </span>
+              <span className="ml-2 text-sm text-muted">
+                정답: {currentQuestion.config.answer}
+              </span>
+            </div>
+
+            {/* Original Photo Reveal */}
+            <div className="rounded-xl overflow-hidden border border-border">
+              <img
+                src={currentQuestion.image.originalUrl}
+                alt={currentQuestion.config.answer}
+                className="w-full h-auto"
+              />
+            </div>
           </div>
         )}
 

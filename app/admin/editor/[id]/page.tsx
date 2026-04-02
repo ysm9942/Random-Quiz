@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { getImageById } from "@/data/images";
 import {
   getQuizConfigByImageId,
+  getQuizConfigs,
+  getQuizSettings,
   saveQuizConfig,
 } from "@/data/quiz-configs";
 import QuizImage from "@/components/quiz/QuizImage";
@@ -12,14 +14,12 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { generateId } from "@/lib/utils";
-import {
-  Person,
-  CropRegion,
-  QuizConfig,
-} from "@/types";
+import { Person, QuizConfig } from "@/types";
 
 interface EditorState {
-  crop: CropRegion;
+  cropX: number;
+  cropY: number;
+  cropSize: number;
   zoom: number;
   maskEnabled: boolean;
   blurPercent: number;
@@ -36,13 +36,18 @@ export default function EditorPage({
   const image = getImageById(id);
   const existingConfig = getQuizConfigByImageId(id);
   const imgRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const [state, setState] = useState<EditorState>(() => {
     if (existingConfig) {
       return {
-        crop: { ...existingConfig.crop },
+        cropX: existingConfig.crop.x,
+        cropY: existingConfig.crop.y,
+        cropSize: existingConfig.crop.size,
         zoom: existingConfig.zoom,
         maskEnabled: existingConfig.mask.enabled,
         blurPercent: existingConfig.mask.blurPercent,
@@ -50,7 +55,9 @@ export default function EditorPage({
       };
     }
     return {
-      crop: { x: 50, y: 50, width: 200, height: 150 },
+      cropX: 50,
+      cropY: 50,
+      cropSize: 150,
       zoom: 1.0,
       maskEnabled: false,
       blurPercent: 30,
@@ -58,7 +65,7 @@ export default function EditorPage({
     };
   });
 
-  // Track rendered image size for sliders max values
+  // Track rendered image size
   useEffect(() => {
     const img = imgRef.current;
     if (!img) return;
@@ -77,87 +84,109 @@ export default function EditorPage({
     };
   }, []);
 
-  const updateField = useCallback(
-    <K extends keyof EditorState>(key: K, value: EditorState[K]) => {
-      setState((prev) => ({ ...prev, [key]: value }));
-      setSaved(false);
-    },
-    []
-  );
+  // Arrow key fine-tuning
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const step = e.shiftKey ? 10 : 1;
+      let handled = true;
+      switch (e.key) {
+        case "ArrowLeft":
+          setState((p) => ({ ...p, cropX: Math.max(0, p.cropX - step) }));
+          break;
+        case "ArrowRight":
+          setState((p) => ({ ...p, cropX: p.cropX + step }));
+          break;
+        case "ArrowUp":
+          setState((p) => ({ ...p, cropY: Math.max(0, p.cropY - step) }));
+          break;
+        case "ArrowDown":
+          setState((p) => ({ ...p, cropY: p.cropY + step }));
+          break;
+        default:
+          handled = false;
+      }
+      if (handled) {
+        e.preventDefault();
+        setSaved(false);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
-  const updateCrop = useCallback(
-    <K extends keyof CropRegion>(key: K, value: number) => {
-      setState((prev) => ({
-        ...prev,
-        crop: { ...prev.crop, [key]: Math.max(0, value) },
-      }));
-      setSaved(false);
-    },
-    []
-  );
-
-  // Click on image = set crop center point
+  // Click on image = set crop center
   const handleImageClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const rect = e.currentTarget.getBoundingClientRect();
       const clickX = Math.round(e.clientX - rect.left);
       const clickY = Math.round(e.clientY - rect.top);
-
-      setState((prev) => {
-        const halfW = Math.round(prev.crop.width / 2);
-        const halfH = Math.round(prev.crop.height / 2);
-        return {
-          ...prev,
-          crop: {
-            ...prev.crop,
-            x: Math.max(0, clickX - halfW),
-            y: Math.max(0, clickY - halfH),
-          },
-        };
-      });
+      const half = Math.round(state.cropSize / 2);
+      setState((prev) => ({
+        ...prev,
+        cropX: Math.max(0, clickX - half),
+        cropY: Math.max(0, clickY - half),
+      }));
       setSaved(false);
     },
-    []
+    [state.cropSize]
   );
 
-  // Mouse wheel zoom on image
-  const handleWheel = useCallback((e: WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setState((prev) => ({
-      ...prev,
-      zoom: Math.round(Math.min(4, Math.max(0.5, prev.zoom + delta)) * 10) / 10,
-    }));
+  // Mouse wheel zoom
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setState((p) => ({
+        ...p,
+        zoom: Math.round(Math.min(4, Math.max(0.5, p.zoom + delta)) * 10) / 10,
+      }));
+    };
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
   }, []);
 
-  useEffect(() => {
-    const img = imgRef.current;
-    if (!img) return;
-    const parent = img.parentElement;
-    if (!parent) return;
-    parent.addEventListener("wheel", handleWheel, { passive: false });
-    return () => parent.removeEventListener("wheel", handleWheel);
-  }, [handleWheel]);
-
-  const handleSave = useCallback(() => {
+  // Save to GitHub
+  const handleSave = useCallback(async () => {
     if (!image) return;
+    setSaving(true);
+    setSaveError("");
 
+    // Save locally first
     const config: QuizConfig = {
       id: existingConfig?.id ?? `quiz-${generateId()}`,
       sourceImageId: image.id,
       answer: state.answer,
-      crop: { ...state.crop },
+      crop: { x: state.cropX, y: state.cropY, size: state.cropSize },
       zoom: state.zoom,
-      mask: {
-        enabled: state.maskEnabled,
-        blurPercent: state.blurPercent,
-      },
+      mask: { enabled: state.maskEnabled, blurPercent: state.blurPercent },
       updatedAt: new Date().toISOString(),
     };
-
     saveQuizConfig(config);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+
+    // Push to GitHub
+    try {
+      const res = await fetch("/api/save-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          configs: getQuizConfigs(),
+          settings: getQuizSettings(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        setSaveError(data.error || "저장 실패");
+      }
+    } catch {
+      setSaveError("네트워크 오류");
+    } finally {
+      setSaving(false);
+    }
   }, [image, existingConfig, state]);
 
   if (!image) {
@@ -173,8 +202,7 @@ export default function EditorPage({
     );
   }
 
-  const maxW = imgSize.w || 600;
-  const maxH = imgSize.h || 400;
+  const maxDim = Math.min(imgSize.w || 600, imgSize.h || 400);
 
   return (
     <main className="flex-1 px-4 py-8">
@@ -192,7 +220,7 @@ export default function EditorPage({
             <p className="text-sm text-muted">{image.name}</p>
           </div>
           <div className="flex items-center gap-3">
-            {saved && <Badge variant="success">저장됨!</Badge>}
+            {saved && <Badge variant="success">GitHub에 저장됨!</Badge>}
             {existingConfig && <Badge variant="info">기존 설정 있음</Badge>}
           </div>
         </div>
@@ -200,12 +228,13 @@ export default function EditorPage({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left: Editor */}
           <div className="space-y-6">
-            {/* Image + Click to position */}
+            {/* Image + Click */}
             <Card>
               <h3 className="text-sm font-semibold text-muted mb-3">
-                원본 이미지 (클릭으로 영역 이동, 휠로 줌)
+                원본 이미지
               </h3>
               <div
+                ref={containerRef}
                 className="relative inline-block cursor-crosshair select-none"
                 style={{ lineHeight: 0 }}
                 onClick={handleImageClick}
@@ -223,90 +252,59 @@ export default function EditorPage({
                   }}
                   draggable={false}
                 />
-                {/* Crop overlay */}
+                {/* Square crop overlay */}
                 <div
                   className="absolute border-2 border-primary bg-primary/20 pointer-events-none rounded"
                   style={{
-                    left: state.crop.x,
-                    top: state.crop.y,
-                    width: state.crop.width,
-                    height: state.crop.height,
-                    transition: "all 0.15s ease-out",
+                    left: state.cropX,
+                    top: state.cropY,
+                    width: state.cropSize,
+                    height: state.cropSize,
+                    transition: "all 0.1s ease-out",
                   }}
-                >
-                  <div className="absolute -top-6 left-0 text-xs bg-primary text-white px-1.5 py-0.5 rounded whitespace-nowrap">
-                    {state.crop.width} x {state.crop.height}
-                  </div>
-                </div>
+                />
               </div>
               <p className="mt-2 text-xs text-muted">
-                줌: {state.zoom.toFixed(1)}x · 이미지를 클릭하면 영역이 이동합니다
+                클릭: 위치 이동 · 방향키: 미세 조정 (Shift+방향키: 10px) · 휠: 줌
               </p>
             </Card>
 
-            {/* Crop Size & Position Sliders */}
+            {/* Crop Size */}
             <Card>
-              <h3 className="text-sm font-semibold text-muted mb-4">
-                영역 크기 · 위치
-              </h3>
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between text-xs text-muted mb-1">
-                    <span>너비</span>
-                    <span>{state.crop.width}px</span>
+                    <span>영역 크기</span>
+                    <span>{state.cropSize}px</span>
                   </div>
                   <input
                     type="range"
                     min={30}
-                    max={maxW}
+                    max={maxDim || 400}
                     step={1}
-                    value={state.crop.width}
-                    onChange={(e) => updateCrop("width", parseInt(e.target.value))}
+                    value={state.cropSize}
+                    onChange={(e) => {
+                      setState((p) => ({ ...p, cropSize: parseInt(e.target.value) }));
+                      setSaved(false);
+                    }}
                     className="w-full"
                   />
                 </div>
                 <div>
                   <div className="flex justify-between text-xs text-muted mb-1">
-                    <span>높이</span>
-                    <span>{state.crop.height}px</span>
+                    <span>확대 (Zoom)</span>
+                    <span>{state.zoom.toFixed(1)}x</span>
                   </div>
                   <input
                     type="range"
-                    min={30}
-                    max={maxH}
-                    step={1}
-                    value={state.crop.height}
-                    onChange={(e) => updateCrop("height", parseInt(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <div className="flex justify-between text-xs text-muted mb-1">
-                    <span>X 위치</span>
-                    <span>{state.crop.x}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={Math.max(0, maxW - state.crop.width)}
-                    step={1}
-                    value={state.crop.x}
-                    onChange={(e) => updateCrop("x", parseInt(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <div className="flex justify-between text-xs text-muted mb-1">
-                    <span>Y 위치</span>
-                    <span>{state.crop.y}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={Math.max(0, maxH - state.crop.height)}
-                    step={1}
-                    value={state.crop.y}
-                    onChange={(e) => updateCrop("y", parseInt(e.target.value))}
+                    min={0.5}
+                    max={4}
+                    step={0.1}
+                    value={state.zoom}
+                    onChange={(e) => {
+                      setState((p) => ({ ...p, zoom: parseFloat(e.target.value) }));
+                      setSaved(false);
+                    }}
                     className="w-full"
                   />
                 </div>
@@ -320,7 +318,10 @@ export default function EditorPage({
                 {(["쫀득", "농루트"] as Person[]).map((person) => (
                   <button
                     key={person}
-                    onClick={() => updateField("answer", person)}
+                    onClick={() => {
+                      setState((p) => ({ ...p, answer: person }));
+                      setSaved(false);
+                    }}
                     className={`flex-1 px-3 py-2 rounded-lg text-sm text-center transition-all cursor-pointer ${
                       state.answer === person
                         ? "bg-primary text-white"
@@ -333,47 +334,22 @@ export default function EditorPage({
               </div>
             </Card>
 
-            {/* Zoom */}
-            <Card>
-              <h3 className="text-sm font-semibold text-muted mb-3">
-                확대 (Zoom): {state.zoom.toFixed(1)}x
-              </h3>
-              <input
-                type="range"
-                min={0.5}
-                max={4}
-                step={0.1}
-                value={state.zoom}
-                onChange={(e) =>
-                  updateField("zoom", parseFloat(e.target.value))
-                }
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-muted mt-1">
-                <span>0.5x</span>
-                <span>4.0x</span>
-              </div>
-            </Card>
-
-            {/* Blur Mask */}
+            {/* Blur */}
             <Card>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-muted">
-                  블러 처리
-                </h3>
+                <h3 className="text-sm font-semibold text-muted">블러 처리</h3>
                 <button
-                  onClick={() =>
-                    updateField("maskEnabled", !state.maskEnabled)
-                  }
+                  onClick={() => {
+                    setState((p) => ({ ...p, maskEnabled: !p.maskEnabled }));
+                    setSaved(false);
+                  }}
                   className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${
                     state.maskEnabled ? "bg-primary" : "bg-border"
                   }`}
                 >
                   <div
                     className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow ${
-                      state.maskEnabled
-                        ? "translate-x-6"
-                        : "translate-x-0.5"
+                      state.maskEnabled ? "translate-x-6" : "translate-x-0.5"
                     }`}
                   />
                 </button>
@@ -390,15 +366,12 @@ export default function EditorPage({
                     max={100}
                     step={5}
                     value={state.blurPercent}
-                    onChange={(e) =>
-                      updateField("blurPercent", parseInt(e.target.value))
-                    }
+                    onChange={(e) => {
+                      setState((p) => ({ ...p, blurPercent: parseInt(e.target.value) }));
+                      setSaved(false);
+                    }}
                     className="w-full"
                   />
-                  <div className="flex justify-between text-xs text-muted mt-1">
-                    <span>0%</span>
-                    <span>100%</span>
-                  </div>
                 </div>
               )}
             </Card>
@@ -407,24 +380,15 @@ export default function EditorPage({
           {/* Right: Preview */}
           <div className="space-y-6">
             <Card className="sticky top-8">
-              <h3 className="text-sm font-semibold text-muted mb-4">
-                미리보기
-              </h3>
+              <h3 className="text-sm font-semibold text-muted mb-4">미리보기</h3>
 
               <div className="bg-background rounded-xl p-6 space-y-4">
-                <div className="text-center text-xs text-muted">
-                  퀴즈 화면 미리보기
-                </div>
-
                 <div className="flex justify-center">
                   <QuizImage
                     imageUrl={image.originalUrl}
-                    crop={state.crop}
+                    crop={{ x: state.cropX, y: state.cropY, size: state.cropSize }}
                     zoom={state.zoom}
-                    mask={{
-                      enabled: state.maskEnabled,
-                      blurPercent: state.blurPercent,
-                    }}
+                    mask={{ enabled: state.maskEnabled, blurPercent: state.blurPercent }}
                     className="shadow-xl"
                   />
                 </div>
@@ -450,7 +414,7 @@ export default function EditorPage({
                 </div>
               </div>
 
-              {/* Config Summary */}
+              {/* Summary */}
               <div className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted">정답</span>
@@ -462,29 +426,30 @@ export default function EditorPage({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted">블러</span>
-                  <span>
-                    {state.maskEnabled
-                      ? `${state.blurPercent}%`
-                      : "없음"}
-                  </span>
+                  <span>{state.maskEnabled ? `${state.blurPercent}%` : "없음"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted">크롭</span>
                   <span className="font-mono text-xs">
-                    {state.crop.x},{state.crop.y} {state.crop.width}x
-                    {state.crop.height}
+                    ({state.cropX}, {state.cropY}) {state.cropSize}px
                   </span>
                 </div>
               </div>
 
-              {/* Save Button */}
+              {/* Save */}
+              {saveError && (
+                <div className="mt-3 p-2 bg-danger/10 border border-danger/30 rounded-lg text-xs text-danger">
+                  {saveError}
+                </div>
+              )}
               <Button
                 onClick={handleSave}
                 variant={saved ? "success" : "primary"}
                 size="lg"
                 className="w-full mt-6"
+                disabled={saving}
               >
-                {saved ? "저장 완료!" : "설정 저장"}
+                {saving ? "저장 중..." : saved ? "GitHub에 저장됨!" : "저장 (GitHub)"}
               </Button>
             </Card>
           </div>

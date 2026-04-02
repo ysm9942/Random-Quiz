@@ -3,8 +3,7 @@ export type Person = "쫀득" | "농루트";
 export interface CropRegion {
   x: number;
   y: number;
-  width: number;
-  height: number;
+  size: number;
 }
 
 export interface MaskConfig {
