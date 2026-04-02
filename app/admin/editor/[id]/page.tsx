@@ -22,6 +22,7 @@ interface EditorState {
   cropY: number;
   cropW: number;
   cropH: number;
+  zoom: number;
   answer: Person;
 }
 
@@ -53,6 +54,7 @@ export default function EditorPage({
         cropY: existingConfig.crop.y,
         cropW: existingConfig.crop.width,
         cropH: existingConfig.crop.height,
+        zoom: existingConfig.zoom ?? 1.0,
         answer: existingConfig.answer,
       };
     }
@@ -61,6 +63,7 @@ export default function EditorPage({
       cropY: 200,
       cropW: 500,
       cropH: 150,
+      zoom: 1.0,
       answer: image?.person ?? "쫀득",
     };
   });
@@ -179,6 +182,7 @@ export default function EditorPage({
         width: state.cropW,
         height: state.cropH,
       },
+      zoom: state.zoom,
       mask: { enabled: false, blurPercent: 0 },
       updatedAt: new Date().toISOString(),
     };
@@ -333,14 +337,32 @@ export default function EditorPage({
                     className="w-full"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3 text-xs text-muted pt-1 border-t border-border">
-                  <div>X: {state.cropX}</div>
-                  <div>Y: {state.cropY}</div>
+                <div>
+                  <div className="flex justify-between text-xs text-muted mb-1">
+                    <span>Zoom</span>
+                    <span>{state.zoom.toFixed(1)}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1.0}
+                    max={5.0}
+                    step={0.1}
+                    value={state.zoom}
+                    onChange={(e) => {
+                      setState((p) => ({ ...p, zoom: parseFloat(e.target.value) }));
+                      setSaved(false);
+                    }}
+                    className="w-full"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted pt-2 border-t border-border font-mono">
+                  <div>X: <span className="text-foreground">{state.cropX}</span></div>
+                  <div>Y: <span className="text-foreground">{state.cropY}</span></div>
+                  <div>W: <span className="text-foreground">{state.cropW}</span></div>
+                  <div>H: <span className="text-foreground">{state.cropH}</span></div>
+                  <div>Zoom: <span className="text-foreground">{state.zoom.toFixed(1)}x</span></div>
                   {naturalSize.w > 0 && (
-                    <>
-                      <div>이미지 크기: {naturalSize.w}×{naturalSize.h}</div>
-                      <div>표시 스케일: {(dispScale * 100).toFixed(0)}%</div>
-                    </>
+                    <div>원본: <span className="text-foreground">{naturalSize.w}×{naturalSize.h}</span></div>
                   )}
                 </div>
               </div>
@@ -385,6 +407,7 @@ export default function EditorPage({
                     width: state.cropW,
                     height: state.cropH,
                   }}
+                  zoom={state.zoom}
                   mask={{ enabled: false, blurPercent: 0 }}
                   className="shadow-xl"
                 />

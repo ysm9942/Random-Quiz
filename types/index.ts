@@ -27,6 +27,7 @@ export interface QuizConfig {
   answer: Person;
   enabled: boolean;  // whether this quiz appears in the pool
   crop: CropRegion;
+  zoom: number;      // zoom into center of crop (1.0 = no zoom, 2.0 = 2x zoom)
   mask: MaskConfig;
   updatedAt: string;
 }

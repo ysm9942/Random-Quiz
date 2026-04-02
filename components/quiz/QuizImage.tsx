@@ -6,16 +6,18 @@ import { CropRegion, MaskConfig } from "@/types";
 interface QuizImageProps {
   imageUrl: string;
   crop: CropRegion;
+  zoom?: number;   // 1.0 = show full crop, 2.0 = zoom into center 2x
   mask: MaskConfig;
   className?: string;
 }
 
 // Crop coords (x, y, width, height) are in NATURAL image pixel space.
-// The container fills to match the crop's aspect ratio.
+// zoom zooms into the center of the crop region.
 // CSS percentage positioning ensures pixel-perfect accuracy at any container size.
 export default function QuizImage({
   imageUrl,
   crop,
+  zoom = 1,
   mask,
   className = "",
 }: QuizImageProps) {
@@ -27,30 +29,24 @@ export default function QuizImage({
     img.src = imageUrl;
   }, [imageUrl]);
 
-  const blurPx = mask.enabled ? (mask.blurPercent / 100) * 20 : 0;
+  // Apply zoom: shrink the effective region around the center of the crop
+  const effectiveW = crop.width / zoom;
+  const effectiveH = crop.height / zoom;
+  const effectiveX = crop.x + (crop.width - effectiveW) / 2;
+  const effectiveY = crop.y + (crop.height - effectiveH) / 2;
 
-  // The container width is 100% of its parent.
-  // The container height = container_width * (crop.height / crop.width).
-  // We use padding-bottom trick for the aspect ratio.
-  const paddingBottom = `${(crop.height / crop.width) * 100}%`;
+  // Container aspect ratio matches the effective (zoomed) crop region
+  const paddingBottom = `${(effectiveH / effectiveW) * 100}%`;
 
   // Image width as % of container width:
-  //   img_display_width = container_width * (natural.w / crop.width)
-  //   => width% = (natural.w / crop.width) * 100
-  const imgWidthPct = naturalSize ? (naturalSize.w / crop.width) * 100 : 0;
+  //   img_display_width = container_width * (natural.w / effectiveW)
+  const imgWidthPct = naturalSize ? (naturalSize.w / effectiveW) * 100 : 0;
 
-  // Image left offset as % of container width:
-  //   offset = -crop.x * (container_width / crop.width)
-  //   => left% = (-crop.x / crop.width) * 100
-  const imgLeftPct = (-crop.x / crop.width) * 100;
+  // Image left: -effectiveX / effectiveW * 100%
+  const imgLeftPct = (-effectiveX / effectiveW) * 100;
 
-  // Image top offset:
-  //   container_height = container_width * (crop.height / crop.width)
-  //   img_top_px = -crop.y * (container_width / crop.width)
-  //   top% of container_height = img_top_px / container_height
-  //                            = (-crop.y / crop.width) / (crop.height / crop.width)
-  //                            = -crop.y / crop.height
-  const imgTopPct = (-crop.y / crop.height) * 100;
+  // Image top: -effectiveY / effectiveH * 100%
+  const imgTopPct = (-effectiveY / effectiveH) * 100;
 
   return (
     <div
@@ -72,12 +68,12 @@ export default function QuizImage({
         />
       )}
 
-      {mask.enabled && blurPx > 0 && (
+      {mask.enabled && mask.blurPercent > 0 && (
         <div
           className="absolute inset-0"
           style={{
-            backdropFilter: `blur(${blurPx}px)`,
-            WebkitBackdropFilter: `blur(${blurPx}px)`,
+            backdropFilter: `blur(${(mask.blurPercent / 100) * 20}px)`,
+            WebkitBackdropFilter: `blur(${(mask.blurPercent / 100) * 20}px)`,
           }}
         />
       )}
