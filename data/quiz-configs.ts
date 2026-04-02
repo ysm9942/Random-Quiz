@@ -5,7 +5,7 @@ let quizSettings: QuizSettings = {
   jjondeukQuestions: 10,
   nongrutQuestions: 14,
   quizMaxWidth: 800,
-  quizMaxHeight: 140,
+  quizMaxHeight: 80,
 };
 
 // crop coords are in NATURAL image pixels.
