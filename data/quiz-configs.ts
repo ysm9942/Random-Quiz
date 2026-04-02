@@ -4,8 +4,8 @@ let quizSettings: QuizSettings = {
   totalQuestions: 24,
   jjondeukQuestions: 10,
   nongrutQuestions: 14,
-  quizMaxWidth: 480,
-  quizMaxHeight: 220,
+  quizMaxWidth: 800,
+  quizMaxHeight: 80,
 };
 
 // crop coords are in NATURAL image pixels.
