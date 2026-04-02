@@ -17,6 +17,7 @@ export function loadQuizQuestions(): QuizQuestion[] {
 
   const allQuestions: QuizQuestion[] = [];
   for (const config of configs) {
+    if (!config.enabled) continue;
     const image = getImageById(config.sourceImageId);
     if (image) {
       allQuestions.push({ config, image });

@@ -69,7 +69,6 @@ export default function QuizPage() {
           <QuizImage
             imageUrl={currentQuestion.image.originalUrl}
             crop={currentQuestion.config.crop}
-            zoom={currentQuestion.config.zoom}
             mask={currentQuestion.config.mask}
             className="shadow-2xl shadow-black/50"
           />

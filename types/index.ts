@@ -1,9 +1,10 @@
 export type Person = "쫀득" | "농루트";
 
 export interface CropRegion {
-  x: number;
-  y: number;
-  size: number;
+  x: number;      // left edge in natural image pixels
+  y: number;      // top edge in natural image pixels
+  width: number;  // crop width in natural image pixels
+  height: number; // crop height in natural image pixels
 }
 
 export interface MaskConfig {
@@ -24,8 +25,8 @@ export interface QuizConfig {
   id: string;
   sourceImageId: string;
   answer: Person;
+  enabled: boolean;  // whether this quiz appears in the pool
   crop: CropRegion;
-  zoom: number;
   mask: MaskConfig;
   updatedAt: string;
 }

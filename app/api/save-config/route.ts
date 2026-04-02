@@ -16,7 +16,6 @@ export async function POST(req: NextRequest) {
 
   const { configs, settings } = await req.json();
 
-  // Build the file content
   const fileContent = generateFileContent(configs, settings);
 
   // Get the current file SHA (required for updates)
@@ -41,7 +40,6 @@ export async function POST(req: NextRequest) {
   const shaData = await shaRes.json();
   const currentSha = shaData.sha;
 
-  // Update the file on GitHub
   const updateRes = await fetch(
     `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,
     {
@@ -76,8 +74,8 @@ function generateFileContent(
     id: string;
     sourceImageId: string;
     answer: string;
-    crop: { x: number; y: number; size: number };
-    zoom: number;
+    enabled?: boolean;
+    crop: { x: number; y: number; width: number; height: number };
     mask: { enabled: boolean; blurPercent: number };
     updatedAt: string;
   }>,
@@ -86,7 +84,7 @@ function generateFileContent(
   const configLines = configs
     .map(
       (c) =>
-        `  { id: "${c.id}", sourceImageId: "${c.sourceImageId}", answer: "${c.answer}", crop: { x: ${c.crop.x}, y: ${c.crop.y}, size: ${c.crop.size} }, zoom: ${c.zoom}, mask: { enabled: ${c.mask.enabled}, blurPercent: ${c.mask.blurPercent} }, updatedAt: "${c.updatedAt}" },`
+        `  { id: "${c.id}", sourceImageId: "${c.sourceImageId}", answer: "${c.answer}", enabled: ${c.enabled !== false}, crop: { x: ${c.crop.x}, y: ${c.crop.y}, width: ${c.crop.width}, height: ${c.crop.height} }, mask: { enabled: ${c.mask.enabled}, blurPercent: ${c.mask.blurPercent} }, updatedAt: "${c.updatedAt}" },`
     )
     .join("\n");
 
@@ -98,6 +96,10 @@ let quizSettings: QuizSettings = {
   nongrutQuestions: ${settings.nongrutQuestions},
 };
 
+// crop coords are in NATURAL image pixels.
+// x, y = top-left corner of the crop region
+// width, height = size of the crop region
+// All values need to be configured in the admin editor for each image.
 let quizConfigs: QuizConfig[] = [
 ${configLines}
 ];

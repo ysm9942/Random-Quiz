@@ -17,12 +17,11 @@ import { generateId } from "@/lib/utils";
 import { Person, QuizConfig } from "@/types";
 
 interface EditorState {
+  // All crop coordinates in NATURAL image pixels
   cropX: number;
   cropY: number;
-  cropSize: number;
-  zoom: number;
-  maskEnabled: boolean;
-  blurPercent: number;
+  cropW: number;
+  cropH: number;
   answer: Person;
 }
 
@@ -37,7 +36,12 @@ export default function EditorPage({
   const existingConfig = getQuizConfigByImageId(id);
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
+
+  // Natural image dimensions (loaded once)
+  const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });
+  // Rendered image dimensions (updated by ResizeObserver)
+  const [renderedSize, setRenderedSize] = useState({ w: 0, h: 0 });
+
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -47,31 +51,35 @@ export default function EditorPage({
       return {
         cropX: existingConfig.crop.x,
         cropY: existingConfig.crop.y,
-        cropSize: existingConfig.crop.size,
-        zoom: existingConfig.zoom,
-        maskEnabled: existingConfig.mask.enabled,
-        blurPercent: existingConfig.mask.blurPercent,
+        cropW: existingConfig.crop.width,
+        cropH: existingConfig.crop.height,
         answer: existingConfig.answer,
       };
     }
     return {
-      cropX: 50,
-      cropY: 50,
-      cropSize: 150,
-      zoom: 1.0,
-      maskEnabled: false,
-      blurPercent: 30,
+      cropX: 100,
+      cropY: 200,
+      cropW: 500,
+      cropH: 150,
       answer: image?.person ?? "쫀득",
     };
   });
+
+  // Load natural image dimensions
+  useEffect(() => {
+    if (!image) return;
+    const img = new Image();
+    img.onload = () => setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
+    img.src = image.originalUrl;
+  }, [image]);
 
   // Track rendered image size
   useEffect(() => {
     const img = imgRef.current;
     if (!img) return;
     const update = () => {
-      if (img.naturalWidth > 0) {
-        setImgSize({ w: img.clientWidth, h: img.clientHeight });
+      if (img.clientWidth > 0) {
+        setRenderedSize({ w: img.clientWidth, h: img.clientHeight });
       }
     };
     img.addEventListener("load", update);
@@ -84,7 +92,10 @@ export default function EditorPage({
     };
   }, []);
 
-  // Arrow key fine-tuning
+  // dispScale: ratio of rendered to natural pixels
+  const dispScale = naturalSize.w > 0 ? renderedSize.w / naturalSize.w : 1;
+
+  // Arrow key fine-tuning (1 natural px per step, Shift = 10)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const step = e.shiftKey ? 10 : 1;
@@ -114,34 +125,38 @@ export default function EditorPage({
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Click on image = set crop center
+  // Click on image = set crop center (convert displayed px → natural px)
   const handleImageClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      if (dispScale === 0) return;
       const rect = e.currentTarget.getBoundingClientRect();
-      const clickX = Math.round(e.clientX - rect.left);
-      const clickY = Math.round(e.clientY - rect.top);
-      const half = Math.round(state.cropSize / 2);
+      const clickX_disp = e.clientX - rect.left;
+      const clickY_disp = e.clientY - rect.top;
+      const clickX_nat = clickX_disp / dispScale;
+      const clickY_nat = clickY_disp / dispScale;
       setState((prev) => ({
         ...prev,
-        cropX: Math.max(0, clickX - half),
-        cropY: Math.max(0, clickY - half),
+        cropX: Math.max(0, Math.round(clickX_nat - prev.cropW / 2)),
+        cropY: Math.max(0, Math.round(clickY_nat - prev.cropH / 2)),
       }));
       setSaved(false);
     },
-    [state.cropSize]
+    [dispScale]
   );
 
-  // Mouse wheel zoom
+  // Mouse wheel = zoom the editor view (adjusts crop size)
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const handler = (e: WheelEvent) => {
       e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      const delta = e.deltaY > 0 ? 20 : -20;
       setState((p) => ({
         ...p,
-        zoom: Math.round(Math.min(4, Math.max(0.5, p.zoom + delta)) * 10) / 10,
+        cropW: Math.max(50, p.cropW + delta),
+        cropH: Math.max(20, p.cropH + Math.round(delta * (p.cropH / p.cropW))),
       }));
+      setSaved(false);
     };
     el.addEventListener("wheel", handler, { passive: false });
     return () => el.removeEventListener("wheel", handler);
@@ -153,19 +168,22 @@ export default function EditorPage({
     setSaving(true);
     setSaveError("");
 
-    // Save locally first
     const config: QuizConfig = {
       id: existingConfig?.id ?? `quiz-${generateId()}`,
       sourceImageId: image.id,
       answer: state.answer,
-      crop: { x: state.cropX, y: state.cropY, size: state.cropSize },
-      zoom: state.zoom,
-      mask: { enabled: state.maskEnabled, blurPercent: state.blurPercent },
+      enabled: existingConfig?.enabled ?? true,
+      crop: {
+        x: state.cropX,
+        y: state.cropY,
+        width: state.cropW,
+        height: state.cropH,
+      },
+      mask: { enabled: false, blurPercent: 0 },
       updatedAt: new Date().toISOString(),
     };
     saveQuizConfig(config);
 
-    // Push to GitHub
     try {
       const res = await fetch("/api/save-config", {
         method: "POST",
@@ -202,7 +220,14 @@ export default function EditorPage({
     );
   }
 
-  const maxDim = Math.min(imgSize.w || 600, imgSize.h || 400);
+  // Overlay rect in displayed pixels
+  const overlayLeft = state.cropX * dispScale;
+  const overlayTop = state.cropY * dispScale;
+  const overlayW = state.cropW * dispScale;
+  const overlayH = state.cropH * dispScale;
+
+  const maxNatW = naturalSize.w || 2000;
+  const maxNatH = naturalSize.h || 2000;
 
   return (
     <main className="flex-1 px-4 py-8">
@@ -231,7 +256,7 @@ export default function EditorPage({
             {/* Image + Click */}
             <Card>
               <h3 className="text-sm font-semibold text-muted mb-3">
-                원본 이미지
+                원본 이미지 — 클릭으로 크롭 위치 지정
               </h3>
               <div
                 ref={containerRef}
@@ -252,39 +277,39 @@ export default function EditorPage({
                   }}
                   draggable={false}
                 />
-                {/* Square crop overlay */}
+                {/* Crop overlay (in displayed pixels) */}
                 <div
                   className="absolute border-2 border-primary bg-primary/20 pointer-events-none rounded"
                   style={{
-                    left: state.cropX,
-                    top: state.cropY,
-                    width: state.cropSize,
-                    height: state.cropSize,
-                    transition: "all 0.1s ease-out",
+                    left: overlayLeft,
+                    top: overlayTop,
+                    width: overlayW,
+                    height: overlayH,
+                    transition: "all 0.08s ease-out",
                   }}
                 />
               </div>
               <p className="mt-2 text-xs text-muted">
-                클릭: 위치 이동 · 방향키: 미세 조정 (Shift+방향키: 10px) · 휠: 줌
+                클릭: 위치 이동 · 방향키: 미세 조정 (Shift: 10px) · 휠: 크기 조절
               </p>
             </Card>
 
-            {/* Crop Size */}
+            {/* Crop Size Controls */}
             <Card>
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between text-xs text-muted mb-1">
-                    <span>영역 크기</span>
-                    <span>{state.cropSize}px</span>
+                    <span>가로 (Width)</span>
+                    <span>{state.cropW}px</span>
                   </div>
                   <input
                     type="range"
-                    min={30}
-                    max={maxDim || 400}
+                    min={50}
+                    max={maxNatW}
                     step={1}
-                    value={state.cropSize}
+                    value={state.cropW}
                     onChange={(e) => {
-                      setState((p) => ({ ...p, cropSize: parseInt(e.target.value) }));
+                      setState((p) => ({ ...p, cropW: parseInt(e.target.value) }));
                       setSaved(false);
                     }}
                     className="w-full"
@@ -292,21 +317,31 @@ export default function EditorPage({
                 </div>
                 <div>
                   <div className="flex justify-between text-xs text-muted mb-1">
-                    <span>확대 (Zoom)</span>
-                    <span>{state.zoom.toFixed(1)}x</span>
+                    <span>세로 (Height)</span>
+                    <span>{state.cropH}px</span>
                   </div>
                   <input
                     type="range"
-                    min={0.5}
-                    max={4}
-                    step={0.1}
-                    value={state.zoom}
+                    min={20}
+                    max={maxNatH}
+                    step={1}
+                    value={state.cropH}
                     onChange={(e) => {
-                      setState((p) => ({ ...p, zoom: parseFloat(e.target.value) }));
+                      setState((p) => ({ ...p, cropH: parseInt(e.target.value) }));
                       setSaved(false);
                     }}
                     className="w-full"
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs text-muted pt-1 border-t border-border">
+                  <div>X: {state.cropX}</div>
+                  <div>Y: {state.cropY}</div>
+                  {naturalSize.w > 0 && (
+                    <>
+                      <div>이미지 크기: {naturalSize.w}×{naturalSize.h}</div>
+                      <div>표시 스케일: {(dispScale * 100).toFixed(0)}%</div>
+                    </>
+                  )}
                 </div>
               </div>
             </Card>
@@ -334,47 +369,6 @@ export default function EditorPage({
               </div>
             </Card>
 
-            {/* Blur */}
-            <Card>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-muted">블러 처리</h3>
-                <button
-                  onClick={() => {
-                    setState((p) => ({ ...p, maskEnabled: !p.maskEnabled }));
-                    setSaved(false);
-                  }}
-                  className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${
-                    state.maskEnabled ? "bg-primary" : "bg-border"
-                  }`}
-                >
-                  <div
-                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow ${
-                      state.maskEnabled ? "translate-x-6" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </div>
-              {state.maskEnabled && (
-                <div>
-                  <div className="flex justify-between text-xs text-muted mb-1">
-                    <span>블러 강도</span>
-                    <span>{state.blurPercent}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={5}
-                    value={state.blurPercent}
-                    onChange={(e) => {
-                      setState((p) => ({ ...p, blurPercent: parseInt(e.target.value) }));
-                      setSaved(false);
-                    }}
-                    className="w-full"
-                  />
-                </div>
-              )}
-            </Card>
           </div>
 
           {/* Right: Preview */}
@@ -382,16 +376,18 @@ export default function EditorPage({
             <Card className="sticky top-8">
               <h3 className="text-sm font-semibold text-muted mb-4">미리보기</h3>
 
-              <div className="bg-background rounded-xl p-6 space-y-4">
-                <div className="flex justify-center">
-                  <QuizImage
-                    imageUrl={image.originalUrl}
-                    crop={{ x: state.cropX, y: state.cropY, size: state.cropSize }}
-                    zoom={state.zoom}
-                    mask={{ enabled: state.maskEnabled, blurPercent: state.blurPercent }}
-                    className="shadow-xl"
-                  />
-                </div>
+              <div className="bg-background rounded-xl p-4 space-y-4">
+                <QuizImage
+                  imageUrl={image.originalUrl}
+                  crop={{
+                    x: state.cropX,
+                    y: state.cropY,
+                    width: state.cropW,
+                    height: state.cropH,
+                  }}
+                  mask={{ enabled: false, blurPercent: 0 }}
+                  className="shadow-xl"
+                />
 
                 <div className="text-center">
                   <p className="font-bold">이 사람은 누구일까요?</p>
@@ -414,28 +410,6 @@ export default function EditorPage({
                 </div>
               </div>
 
-              {/* Summary */}
-              <div className="mt-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted">정답</span>
-                  <span>{state.answer}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted">줌</span>
-                  <span>{state.zoom.toFixed(1)}x</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted">블러</span>
-                  <span>{state.maskEnabled ? `${state.blurPercent}%` : "없음"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted">크롭</span>
-                  <span className="font-mono text-xs">
-                    ({state.cropX}, {state.cropY}) {state.cropSize}px
-                  </span>
-                </div>
-              </div>
-
               {/* Save */}
               {saveError && (
                 <div className="mt-3 p-2 bg-danger/10 border border-danger/30 rounded-lg text-xs text-danger">
@@ -446,7 +420,7 @@ export default function EditorPage({
                 onClick={handleSave}
                 variant={saved ? "success" : "primary"}
                 size="lg"
-                className="w-full mt-6"
+                className="w-full mt-4"
                 disabled={saving}
               >
                 {saving ? "저장 중..." : saved ? "GitHub에 저장됨!" : "저장 (GitHub)"}

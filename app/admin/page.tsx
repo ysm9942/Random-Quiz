@@ -3,18 +3,24 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { sourceImages } from "@/data/images";
-import { getQuizConfigs, getQuizConfigByImageId, getQuizSettings, saveQuizSettings } from "@/data/quiz-configs";
+import {
+  getQuizConfigs,
+  getQuizConfigByImageId,
+  getQuizSettings,
+  saveQuizSettings,
+  saveQuizConfig,
+} from "@/data/quiz-configs";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import PinGate from "@/components/ui/PinGate";
-import { Person } from "@/types";
+import { Person, QuizConfig } from "@/types";
 
 type FilterType = "all" | Person;
 
 export default function AdminPage() {
   const [filter, setFilter] = useState<FilterType>("all");
-  const configs = getQuizConfigs();
+  const [configs, setConfigs] = useState<QuizConfig[]>(getQuizConfigs);
   const [settings, setSettings] = useState(getQuizSettings);
   const [settingsSaved, setSettingsSaved] = useState(false);
 
@@ -23,14 +29,22 @@ export default function AdminPage() {
     return sourceImages.filter((img) => img.person === filter);
   }, [filter]);
 
-  const totalConfigs = configs.length;
-  const jjondeukConfigs = configs.filter((c) => c.answer === "쫀득").length;
-  const nongrutConfigs = configs.filter((c) => c.answer === "농루트").length;
+  const enabledConfigs = configs.filter((c) => c.enabled);
+  const jjondeukEnabled = enabledConfigs.filter((c) => c.answer === "쫀득").length;
+  const nongrutEnabled = enabledConfigs.filter((c) => c.answer === "농루트").length;
 
   const handleSaveSettings = () => {
     saveQuizSettings(settings);
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
+  };
+
+  const toggleEnabled = (config: QuizConfig) => {
+    const updated = { ...config, enabled: !config.enabled };
+    saveQuizConfig(updated);
+    setConfigs((prev) =>
+      prev.map((c) => (c.id === updated.id ? updated : c))
+    );
   };
 
   return (
@@ -51,7 +65,7 @@ export default function AdminPage() {
           </Link>
           <h1 className="text-3xl font-black mt-2">관리자 설정</h1>
           <p className="text-muted mt-1">
-            이미지를 선택해 퀴즈 문제를 생성하거나 편집하세요.
+            이미지를 선택해 퀴즈 문제를 편집하고, 카드의 토글로 출제 여부를 설정하세요.
           </p>
         </div>
 
@@ -73,7 +87,7 @@ export default function AdminPage() {
             </div>
             <div>
               <label className="block text-xs text-muted mb-1">
-                쫀득 문제 수 <span className="text-violet-400">(설정됨: {jjondeukConfigs}개)</span>
+                쫀득 문제 수 <span className="text-violet-400">(활성: {jjondeukEnabled}개)</span>
               </label>
               <input
                 type="number"
@@ -87,7 +101,7 @@ export default function AdminPage() {
             </div>
             <div>
               <label className="block text-xs text-muted mb-1">
-                농루트 문제 수 <span className="text-cyan-400">(설정됨: {nongrutConfigs}개)</span>
+                농루트 문제 수 <span className="text-cyan-400">(활성: {nongrutEnabled}개)</span>
               </label>
               <input
                 type="number"
@@ -105,7 +119,7 @@ export default function AdminPage() {
               {settingsSaved ? "저장됨!" : "설정 저장"}
             </Button>
             <span className="text-xs text-muted">
-              전체 {totalConfigs}개 문제 중 랜덤으로 출제됩니다.
+              활성화된 {enabledConfigs.length}개 문제 중 랜덤으로 출제됩니다.
             </span>
           </div>
         </Card>
@@ -113,21 +127,21 @@ export default function AdminPage() {
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
-            <div className="text-sm text-muted">전체 문제</div>
+            <div className="text-sm text-muted">활성 문제</div>
             <div className="text-3xl font-bold text-primary mt-1">
-              {totalConfigs}
+              {enabledConfigs.length}
             </div>
           </Card>
           <Card>
-            <div className="text-sm text-muted">쫀득 문제</div>
+            <div className="text-sm text-muted">쫀득 활성</div>
             <div className="text-3xl font-bold text-violet-400 mt-1">
-              {jjondeukConfigs}
+              {jjondeukEnabled}
             </div>
           </Card>
           <Card>
-            <div className="text-sm text-muted">농루트 문제</div>
+            <div className="text-sm text-muted">농루트 활성</div>
             <div className="text-3xl font-bold text-cyan-400 mt-1">
-              {nongrutConfigs}
+              {nongrutEnabled}
             </div>
           </Card>
         </div>
@@ -153,33 +167,52 @@ export default function AdminPage() {
         {/* Image Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredImages.map((image) => {
-            const config = getQuizConfigByImageId(image.id);
+            const config = configs.find((c) => c.sourceImageId === image.id);
 
             return (
-              <Link key={image.id} href={`/admin/editor/${image.id}`}>
-                <Card hoverable className="space-y-3">
+              <Card key={image.id} hoverable className="space-y-3">
+                <Link href={`/admin/editor/${image.id}`} className="block">
                   <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
                     <img
                       src={image.thumbnailUrl}
                       alt={image.name}
                       className="w-full h-full object-cover"
                     />
-                    {config && (
-                      <div className="absolute top-2 right-2">
-                        <Badge variant="success">설정됨</Badge>
+                    {config && !config.enabled && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-xl">
+                        <span className="text-white text-xs font-bold bg-black/60 px-2 py-1 rounded">비활성</span>
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mt-3">
                     <div>
                       <h3 className="font-semibold text-sm">{image.name}</h3>
-                      <p className="text-xs text-muted mt-0.5">
-                        {image.person}
-                      </p>
+                      <p className="text-xs text-muted mt-0.5">{image.person}</p>
                     </div>
                   </div>
-                </Card>
-              </Link>
+                </Link>
+                {/* Enabled toggle — outside Link so click doesn't navigate */}
+                {config && (
+                  <div className="flex items-center justify-between pt-2 border-t border-border">
+                    <span className="text-xs text-muted">출제 여부</span>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        toggleEnabled(config);
+                      }}
+                      className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer ${
+                        config.enabled ? "bg-primary" : "bg-border"
+                      }`}
+                    >
+                      <div
+                        className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform shadow ${
+                          config.enabled ? "translate-x-5" : "translate-x-0.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                )}
+              </Card>
             );
           })}
         </div>
