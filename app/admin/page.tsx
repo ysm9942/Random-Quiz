@@ -5,14 +5,10 @@ import Link from "next/link";
 import { sourceImages } from "@/data/images";
 import {
   getQuizConfigs,
-  getQuizConfigByImageId,
-  getQuizSettings,
-  saveQuizSettings,
   saveQuizConfig,
 } from "@/data/quiz-configs";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
 import PinGate from "@/components/ui/PinGate";
 import { Person, QuizConfig } from "@/types";
 
@@ -21,8 +17,6 @@ type FilterType = "all" | Person;
 export default function AdminPage() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [configs, setConfigs] = useState<QuizConfig[]>(getQuizConfigs);
-  const [settings, setSettings] = useState(getQuizSettings);
-  const [settingsSaved, setSettingsSaved] = useState(false);
 
   const filteredImages = useMemo(() => {
     if (filter === "all") return sourceImages;
@@ -32,12 +26,6 @@ export default function AdminPage() {
   const enabledConfigs = configs.filter((c) => c.enabled);
   const jjondeukEnabled = enabledConfigs.filter((c) => c.answer === "쫀득").length;
   const nongrutEnabled = enabledConfigs.filter((c) => c.answer === "농루트").length;
-
-  const handleSaveSettings = () => {
-    saveQuizSettings(settings);
-    setSettingsSaved(true);
-    setTimeout(() => setSettingsSaved(false), 2000);
-  };
 
   const toggleEnabled = (config: QuizConfig) => {
     const updated = { ...config, enabled: !config.enabled };
@@ -69,60 +57,6 @@ export default function AdminPage() {
           </p>
         </div>
 
-        {/* Quiz Settings */}
-        <Card>
-          <h3 className="text-sm font-semibold text-muted mb-4">퀴즈 출제 설정</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs text-muted mb-1">전체 문제 수</label>
-              <input
-                type="number"
-                min={1}
-                value={settings.totalQuestions}
-                onChange={(e) =>
-                  setSettings((s) => ({ ...s, totalQuestions: parseInt(e.target.value) || 1 }))
-                }
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-muted mb-1">
-                쫀득 문제 수 <span className="text-violet-400">(활성: {jjondeukEnabled}개)</span>
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={settings.jjondeukQuestions}
-                onChange={(e) =>
-                  setSettings((s) => ({ ...s, jjondeukQuestions: parseInt(e.target.value) || 0 }))
-                }
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-muted mb-1">
-                농루트 문제 수 <span className="text-cyan-400">(활성: {nongrutEnabled}개)</span>
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={settings.nongrutQuestions}
-                onChange={(e) =>
-                  setSettings((s) => ({ ...s, nongrutQuestions: parseInt(e.target.value) || 0 }))
-                }
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
-              />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center gap-3">
-            <Button size="sm" onClick={handleSaveSettings}>
-              {settingsSaved ? "저장됨!" : "설정 저장"}
-            </Button>
-            <span className="text-xs text-muted">
-              활성화된 {enabledConfigs.length}개 문제 중 랜덤으로 출제됩니다.
-            </span>
-          </div>
-        </Card>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
