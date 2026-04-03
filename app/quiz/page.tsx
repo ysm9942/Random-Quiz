@@ -64,71 +64,45 @@ export default function QuizPage() {
           <ProgressBar current={currentIndex + 1} total={totalQuestions} />
         </div>
 
-        {/* Question Image */}
-        <div className="flex justify-center">
-          <div style={{ width: "100%" }}>
-            <QuizImage
-              imageUrl={currentQuestion.image.originalUrl}
-              crop={currentQuestion.config.crop}
-              mask={currentQuestion.config.mask}
-              className="shadow-2xl shadow-black/50"
-            />
-          </div>
-        </div>
+        {/* Before answer: show cropped image + question + buttons */}
+        {!showResult && (
+          <>
+            {/* Question Image */}
+            <div className="flex justify-center">
+              <div style={{ width: "100%" }}>
+                <QuizImage
+                  imageUrl={currentQuestion.image.originalUrl}
+                  crop={currentQuestion.config.crop}
+                  mask={currentQuestion.config.mask}
+                  className="shadow-2xl shadow-black/50"
+                />
+              </div>
+            </div>
 
-        {/* Question */}
-        <div className="text-center">
-          <h2 className="text-xl font-bold">이 사람은 누구일까요?</h2>
-          <p className="text-sm text-muted mt-1">
-            문제 {currentIndex + 1} / {totalQuestions}
-          </p>
-        </div>
+            {/* Question */}
+            <div className="text-center">
+              <h2 className="text-xl font-bold">이 사람은 누구일까요?</h2>
+              <p className="text-sm text-muted mt-1">
+                문제 {currentIndex + 1} / {totalQuestions}
+              </p>
+            </div>
 
-        {/* Answer Buttons */}
-        <div className="grid grid-cols-2 gap-4">
-          {(["쫀득", "농루트"] as Person[]).map((person) => {
-            const isSelected = selectedAnswer === person;
-            const isAnswer = currentQuestion.config.answer === person;
+            {/* Answer Buttons */}
+            <div className="grid grid-cols-2 gap-4">
+              {(["쫀득", "농루트"] as Person[]).map((person) => (
+                <button
+                  key={person}
+                  onClick={() => selectAnswer(person)}
+                  className="relative py-6 text-xl font-bold rounded-2xl border-2 transition-all duration-300 cursor-pointer bg-card border-border hover:border-primary hover:bg-card-hover"
+                >
+                  {person}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
-            let btnClass = "relative py-6 text-xl font-bold rounded-2xl border-2 transition-all duration-300 cursor-pointer ";
-
-            if (!showResult) {
-              btnClass +=
-                "bg-card border-border hover:border-primary hover:bg-card-hover";
-            } else if (isAnswer) {
-              btnClass +=
-                "bg-success/10 border-success text-success";
-            } else if (isSelected && !isAnswer) {
-              btnClass +=
-                "bg-danger/10 border-danger text-danger";
-            } else {
-              btnClass += "bg-card border-border opacity-50";
-            }
-
-            return (
-              <button
-                key={person}
-                onClick={() => selectAnswer(person)}
-                disabled={!!selectedAnswer}
-                className={btnClass}
-              >
-                {person}
-                {showResult && isAnswer && (
-                  <span className="absolute -top-2 -right-2 w-7 h-7 bg-success rounded-full flex items-center justify-center text-white text-sm">
-                    ✓
-                  </span>
-                )}
-                {showResult && isSelected && !isAnswer && (
-                  <span className="absolute -top-2 -right-2 w-7 h-7 bg-danger rounded-full flex items-center justify-center text-white text-sm">
-                    ✗
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Feedback + Original Image */}
+        {/* After answer: show result + original image */}
         {showResult && (
           <div className="space-y-4">
             <div
