@@ -13,7 +13,7 @@ let quizSettings: QuizSettings = {
 // width, height = size of the crop region
 // All values need to be configured in the admin editor for each image.
 let quizConfigs: QuizConfig[] = [
-  { id: "quiz-001", sourceImageId: "img-001", answer: "농루트", enabled: false, crop: { x: 247, y: 294, width: 438, height: 374 }, displayMaxWidth: 480, displayMaxHeight: 220, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2026-04-03T01:42:01.594Z" },
+  { id: "quiz-001", sourceImageId: "img-001", answer: "농루트", enabled: true, crop: { x: 431, y: 404, width: 92, height: 54 }, displayMaxWidth: 480, displayMaxHeight: 220, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2026-04-03T02:01:39.285Z" },
   { id: "quiz-002", sourceImageId: "img-002", answer: "농루트", enabled: false, crop: { x: 23, y: 130, width: 830, height: 802 }, displayMaxWidth: 480, displayMaxHeight: 220, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2026-04-03T01:42:06.729Z" },
   { id: "quiz-003", sourceImageId: "img-003", answer: "농루트", enabled: true, crop: { x: 5, y: 0, width: 489, height: 529 }, displayMaxWidth: 480, displayMaxHeight: 50, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2026-04-03T01:42:21.307Z" },
   { id: "quiz-004", sourceImageId: "img-004", answer: "농루트", enabled: true, crop: { x: 0, y: 46, width: 630, height: 29 }, displayMaxWidth: 480, displayMaxHeight: 100, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2026-04-02T23:39:06.220Z" },
