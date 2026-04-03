@@ -238,6 +238,11 @@ export default function EditorPage({
     };
     saveQuizConfig(config);
 
+    // Save to localStorage for instant quiz reflection
+    try {
+      localStorage.setItem("quiz-configs", JSON.stringify(getQuizConfigs()));
+    } catch {}
+
     try {
       const res = await fetch("/api/save-config", {
         method: "POST",

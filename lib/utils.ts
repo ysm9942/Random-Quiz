@@ -12,8 +12,18 @@ export function shuffleArray<T>(array: T[]): T[] {
 }
 
 export function loadQuizQuestions(): QuizQuestion[] {
-  const configs = getQuizConfigs();
+  let configs = getQuizConfigs();
   const settings = getQuizSettings();
+
+  // Use localStorage configs if available (instant reflection after admin save)
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("quiz-configs");
+      if (stored) {
+        configs = JSON.parse(stored);
+      }
+    } catch {}
+  }
 
   const allQuestions: QuizQuestion[] = [];
   for (const config of configs) {
