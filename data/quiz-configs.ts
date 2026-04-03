@@ -33,7 +33,7 @@ let quizConfigs: QuizConfig[] = [
   { id: "quiz-018", sourceImageId: "img-018", answer: "쫀득", enabled: true, crop: { x: 962, y: 881, width: 599, height: 127 }, displayMaxWidth: 480, displayMaxHeight: 220, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2026-04-03T02:03:23.513Z" },
   { id: "quiz-019", sourceImageId: "img-019", answer: "쫀득", enabled: true, crop: { x: 0, y: 0, width: 500, height: 200 }, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2025-01-15T11:30:00Z" },
   { id: "quiz-020", sourceImageId: "img-020", answer: "쫀득", enabled: true, crop: { x: 0, y: 0, width: 500, height: 200 }, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2025-01-15T11:35:00Z" },
-  { id: "quiz-021", sourceImageId: "img-021", answer: "쫀득", enabled: true, crop: { x: 0, y: 0, width: 500, height: 200 }, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2025-01-15T11:40:00Z" },
+  { id: "quiz-021", sourceImageId: "img-021", answer: "쫀득", enabled: true, crop: { x: 718, y: 954, width: 783, height: 159 }, displayMaxWidth: 480, displayMaxHeight: 220, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2026-04-03T02:03:38.343Z" },
   { id: "quiz-022", sourceImageId: "img-022", answer: "쫀득", enabled: true, crop: { x: 0, y: 0, width: 500, height: 200 }, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2025-01-15T11:45:00Z" },
   { id: "quiz-023", sourceImageId: "img-023", answer: "쫀득", enabled: true, crop: { x: 0, y: 0, width: 500, height: 200 }, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2025-01-15T11:50:00Z" },
   { id: "quiz-024", sourceImageId: "img-024", answer: "쫀득", enabled: true, crop: { x: 0, y: 0, width: 500, height: 200 }, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2025-01-15T11:55:00Z" },
