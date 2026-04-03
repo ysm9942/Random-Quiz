@@ -21,7 +21,7 @@ let quizConfigs: QuizConfig[] = [
   { id: "quiz-006", sourceImageId: "img-006", answer: "농루트", enabled: true, crop: { x: 0, y: 0, width: 500, height: 200 }, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2025-01-15T10:25:00Z" },
   { id: "quiz-007", sourceImageId: "img-007", answer: "농루트", enabled: true, crop: { x: 0, y: 0, width: 500, height: 200 }, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2025-01-15T10:30:00Z" },
   { id: "quiz-008", sourceImageId: "img-008", answer: "농루트", enabled: true, crop: { x: 0, y: 0, width: 500, height: 200 }, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2025-01-15T10:35:00Z" },
-  { id: "quiz-009", sourceImageId: "img-009", answer: "농루트", enabled: true, crop: { x: 0, y: 0, width: 500, height: 200 }, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2025-01-15T10:40:00Z" },
+  { id: "quiz-009", sourceImageId: "img-009", answer: "농루트", enabled: true, crop: { x: 1046, y: 2132, width: 311, height: 144 }, displayMaxWidth: 480, displayMaxHeight: 220, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2026-04-03T01:32:49.853Z" },
   { id: "quiz-010", sourceImageId: "img-010", answer: "농루트", enabled: true, crop: { x: 0, y: 0, width: 500, height: 200 }, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2025-01-15T10:45:00Z" },
   { id: "quiz-011", sourceImageId: "img-011", answer: "농루트", enabled: true, crop: { x: 0, y: 0, width: 500, height: 200 }, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2025-01-15T10:50:00Z" },
   { id: "quiz-012", sourceImageId: "img-012", answer: "농루트", enabled: true, crop: { x: 0, y: 0, width: 500, height: 200 }, mask: { enabled: false, blurPercent: 0 }, updatedAt: "2025-01-15T10:55:00Z" },
