@@ -368,24 +368,35 @@ export default function EditorPage({
             <h3 className="text-sm font-semibold text-muted mb-3">
               선택 영역 미리보기
             </h3>
-            <div
-              ref={previewContainerRef}
-              className="rounded-xl overflow-hidden bg-black/50 border border-border"
-              style={{ height: previewHeight || 200 }}
-            >
-              {naturalSize.w > 0 && state.cropW > 10 && (
-                <img
-                  src={image.originalUrl}
-                  alt="미리보기"
+            <div ref={previewContainerRef}>
+              {naturalSize.w > 0 && state.cropW > 10 ? (
+                <div
+                  className="rounded-xl overflow-hidden border border-border mx-auto"
                   style={{
-                    display: "block",
-                    width: naturalSize.w * previewScale,
-                    height: naturalSize.h * previewScale,
-                    transform: `translate(-${state.cropX * previewScale}px, -${state.cropY * previewScale}px)`,
-                    maxWidth: "none",
+                    width: state.cropW * previewScale,
+                    height: previewHeight,
                   }}
-                  draggable={false}
-                />
+                >
+                  <img
+                    src={image.originalUrl}
+                    alt="미리보기"
+                    style={{
+                      display: "block",
+                      width: naturalSize.w * previewScale,
+                      height: naturalSize.h * previewScale,
+                      transform: `translate(-${state.cropX * previewScale}px, -${state.cropY * previewScale}px)`,
+                      maxWidth: "none",
+                    }}
+                    draggable={false}
+                  />
+                </div>
+              ) : (
+                <div
+                  className="rounded-xl bg-black/20 border border-border flex items-center justify-center text-muted text-sm"
+                  style={{ height: 200 }}
+                >
+                  드래그로 영역을 선택하세요
+                </div>
               )}
             </div>
           </Card>
