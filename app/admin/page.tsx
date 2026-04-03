@@ -7,23 +7,17 @@ import {
   getQuizConfigs,
   getQuizSettings,
   saveQuizConfig,
-  saveQuizSettings,
 } from "@/data/quiz-configs";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
 import PinGate from "@/components/ui/PinGate";
-import { Person, QuizConfig, QuizSettings } from "@/types";
+import { Person, QuizConfig } from "@/types";
 
 type FilterType = "all" | Person;
 
 export default function AdminPage() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [configs, setConfigs] = useState<QuizConfig[]>(getQuizConfigs);
-  const [settings, setSettings] = useState<QuizSettings>(getQuizSettings);
-  const [settingsSaving, setSettingsSaving] = useState(false);
-  const [settingsSaved, setSettingsSaved] = useState(false);
-  const [settingsError, setSettingsError] = useState("");
 
   const filteredImages = useMemo(() => {
     if (filter === "all") return sourceImages;
@@ -33,30 +27,6 @@ export default function AdminPage() {
   const enabledConfigs = configs.filter((c) => c.enabled);
   const jjondeukEnabled = enabledConfigs.filter((c) => c.answer === "쫀득").length;
   const nongrutEnabled = enabledConfigs.filter((c) => c.answer === "농루트").length;
-
-  const handleSaveSettings = async () => {
-    saveQuizSettings(settings);
-    setSettingsSaving(true);
-    setSettingsError("");
-    try {
-      const res = await fetch("/api/save-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ configs: getQuizConfigs(), settings }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSettingsSaved(true);
-        setTimeout(() => setSettingsSaved(false), 2000);
-      } else {
-        setSettingsError(data.error || "저장 실패");
-      }
-    } catch {
-      setSettingsError("네트워크 오류");
-    } finally {
-      setSettingsSaving(false);
-    }
-  };
 
   const toggleEnabled = (config: QuizConfig) => {
     const updated = { ...config, enabled: !config.enabled };
@@ -88,43 +58,6 @@ export default function AdminPage() {
           </p>
         </div>
 
-
-        {/* Quiz Image Size Settings */}
-        <Card>
-          <h3 className="text-sm font-semibold text-muted mb-4">퀴즈 이미지 크기</h3>
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-xs text-muted mb-1">
-                <span>가로 최대 너비</span>
-                <span>{settings.quizMaxWidth}px</span>
-              </div>
-              <input
-                type="range" min={200} max={800} step={10}
-                value={settings.quizMaxWidth}
-                onChange={(e) => setSettings((s) => ({ ...s, quizMaxWidth: parseInt(e.target.value) }))}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <div className="flex justify-between text-xs text-muted mb-1">
-                <span>세로 최대 높이</span>
-                <span>{settings.quizMaxHeight}px</span>
-              </div>
-              <input
-                type="range" min={80} max={500} step={10}
-                value={settings.quizMaxHeight}
-                onChange={(e) => setSettings((s) => ({ ...s, quizMaxHeight: parseInt(e.target.value) }))}
-                className="w-full"
-              />
-            </div>
-            {settingsError && (
-              <p className="text-xs text-danger">{settingsError}</p>
-            )}
-            <Button size="sm" onClick={handleSaveSettings} disabled={settingsSaving}>
-              {settingsSaving ? "저장 중..." : settingsSaved ? "저장됨!" : "저장 (GitHub)"}
-            </Button>
-          </div>
-        </Card>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
