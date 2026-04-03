@@ -38,11 +38,9 @@ export default function EditorPage({
   const existingConfig = getQuizConfigByImageId(id);
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });
   const [renderedSize, setRenderedSize] = useState({ w: 0, h: 0 });
-  const [previewWidth, setPreviewWidth] = useState(0);
 
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -104,16 +102,6 @@ export default function EditorPage({
     };
   }, []);
 
-  // Track preview container width
-  useEffect(() => {
-    const el = previewContainerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => {
-      if (el.clientWidth > 0) setPreviewWidth(el.clientWidth);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   const dispScale = naturalSize.w > 0 ? renderedSize.w / naturalSize.w : 1;
 
@@ -153,8 +141,8 @@ export default function EditorPage({
       if (dispScale === 0) return;
       e.preventDefault();
       const rect = e.currentTarget.getBoundingClientRect();
-      const natX = (e.clientX - rect.left) / dispScale;
-      const natY = (e.clientY - rect.top) / dispScale;
+      const natX = Math.max(0, Math.min((e.clientX - rect.left) / dispScale, naturalSize.w));
+      const natY = Math.max(0, Math.min((e.clientY - rect.top) / dispScale, naturalSize.h));
       dragStartRef.current = { x: natX, y: natY };
       setIsDragging(true);
     },
@@ -285,15 +273,6 @@ export default function EditorPage({
   const overlayW = state.cropW * dispScale;
   const overlayH = state.cropH * dispScale;
 
-  // Preview: scale crop area to fill container width, cap height
-  const maxPreviewH = 500;
-  let previewScale =
-    state.cropW > 0 && previewWidth > 0 ? previewWidth / state.cropW : 1;
-  if (state.cropH * previewScale > maxPreviewH) {
-    previewScale = maxPreviewH / state.cropH;
-  }
-  const previewHeight = state.cropH * previewScale;
-
   return (
     <main className="flex-1 px-4 py-8">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -368,42 +347,33 @@ export default function EditorPage({
             </p>
           </Card>
 
-          {/* Right: Enlarged Crop Preview */}
+          {/* Right: Enlarged Crop Preview (same QuizImage as quiz page) */}
           <Card>
             <h3 className="text-sm font-semibold text-muted mb-3">
               선택 영역 미리보기
             </h3>
-            <div ref={previewContainerRef}>
-              {naturalSize.w > 0 && state.cropW > 10 ? (
-                <div
-                  className="rounded-xl overflow-hidden border border-border mx-auto"
-                  style={{
-                    width: state.cropW * previewScale,
-                    height: previewHeight,
+            {naturalSize.w > 0 && state.cropW > 10 ? (
+              <div style={{ width: "100%" }}>
+                <QuizImage
+                  imageUrl={image.originalUrl}
+                  crop={{
+                    x: state.cropX,
+                    y: state.cropY,
+                    width: state.cropW,
+                    height: state.cropH,
                   }}
-                >
-                  <img
-                    src={image.originalUrl}
-                    alt="미리보기"
-                    style={{
-                      display: "block",
-                      width: naturalSize.w * previewScale,
-                      height: naturalSize.h * previewScale,
-                      transform: `translate(-${state.cropX * previewScale}px, -${state.cropY * previewScale}px)`,
-                      maxWidth: "none",
-                    }}
-                    draggable={false}
-                  />
-                </div>
-              ) : (
-                <div
-                  className="rounded-xl bg-black/20 border border-border flex items-center justify-center text-muted text-sm"
-                  style={{ height: 200 }}
-                >
-                  드래그로 영역을 선택하세요
-                </div>
-              )}
-            </div>
+                  mask={{ enabled: false, blurPercent: 0 }}
+                  className="shadow-lg"
+                />
+              </div>
+            ) : (
+              <div
+                className="rounded-xl bg-black/20 border border-border flex items-center justify-center text-muted text-sm"
+                style={{ height: 200 }}
+              >
+                드래그로 영역을 선택하세요
+              </div>
+            )}
           </Card>
         </div>
 
@@ -471,9 +441,7 @@ export default function EditorPage({
               <ProgressBar current={1} total={1} />
 
               <div className="flex justify-center">
-                <div
-                  style={{ width: "100%", maxWidth: state.displayMaxWidth }}
-                >
+                <div style={{ width: "100%" }}>
                   <QuizImage
                     imageUrl={image.originalUrl}
                     crop={{
@@ -482,7 +450,6 @@ export default function EditorPage({
                       width: state.cropW,
                       height: state.cropH,
                     }}
-                    maxHeight={state.displayMaxHeight}
                     mask={{ enabled: false, blurPercent: 0 }}
                     className="shadow-2xl shadow-black/50"
                   />

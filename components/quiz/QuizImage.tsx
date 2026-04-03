@@ -40,19 +40,26 @@ export default function QuizImage({
     return () => ro.disconnect();
   }, []);
 
-  // Scale: fit crop.width natural px into containerW display px
-  // If that would make height exceed maxHeight, constrain by height instead
-  const scaleByW = containerW > 0 ? containerW / crop.width : 0;
-  const scaleByH = maxHeight ? maxHeight / crop.height : Infinity;
+  // Clamp crop to image boundaries to prevent black screens
+  const safeCrop = naturalSize
+    ? {
+        x: Math.max(0, Math.min(crop.x, naturalSize.w - 1)),
+        y: Math.max(0, Math.min(crop.y, naturalSize.h - 1)),
+        width: Math.min(crop.width, naturalSize.w - Math.max(0, crop.x)),
+        height: Math.min(crop.height, naturalSize.h - Math.max(0, crop.y)),
+      }
+    : crop;
+
+  // Scale: fit crop into containerW display px
+  const scaleByW = containerW > 0 && safeCrop.width > 0 ? containerW / safeCrop.width : 0;
+  const scaleByH = maxHeight && safeCrop.height > 0 ? maxHeight / safeCrop.height : Infinity;
   const scale = Math.min(scaleByW, scaleByH);
 
-  // Actual container height after scaling
-  const containerH = scale > 0 ? crop.height * scale : 0;
+  const containerH = scale > 0 ? safeCrop.height * scale : 0;
 
   const imgW = naturalSize ? naturalSize.w * scale : 0;
-  const imgH = naturalSize ? naturalSize.h * scale : 0;
-  const imgLeft = -crop.x * scale;
-  const imgTop = -crop.y * scale;
+  const imgLeft = -safeCrop.x * scale;
+  const imgTop = -safeCrop.y * scale;
 
   return (
     <div
@@ -69,6 +76,7 @@ export default function QuizImage({
           style={{
             width: imgW,
             height: "auto",
+            maxWidth: "none",
             left: imgLeft,
             top: imgTop,
           }}
